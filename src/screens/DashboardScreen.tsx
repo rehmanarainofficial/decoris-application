@@ -17,6 +17,7 @@ import {
   TodayOverview,
 } from '../components/dashboard';
 import { useGetDashboardDataQuery } from '../api/dashboardApi';
+import { baseApi } from '../api/baseApi';
 import { Colors, Typography, Spacing } from '../constants';
 import { useAppDispatch } from '../hooks';
 import { logout } from '../store/slices/userSlice';
@@ -34,7 +35,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
   };
 
   const handleLogoutPress = () => {
+    // Clear user Redux slice and purge RTK Query cache completely
     dispatch(logout());
+    dispatch(baseApi.util.resetApiState());
   };
 
   const renderMainContent = () => {
@@ -70,7 +73,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ onNavigate }) 
         }
       >
         <WelcomeBanner
-          userName={data?.user.name ?? 'Ahsan'}
+          userName={data?.user.name ?? 'Admin'}
           subtitle="Let's manage your orders and business today."
         />
 

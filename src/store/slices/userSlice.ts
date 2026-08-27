@@ -7,12 +7,7 @@ interface UserState {
 }
 
 const initialState: UserState = {
-  profile: {
-    id: 'usr_101',
-    name: 'Ahsan',
-    role: 'Event Manager',
-    unreadNotifications: 1,
-  },
+  profile: null,
   isAuthenticated: false,
 };
 
@@ -23,10 +18,14 @@ export const userSlice = createSlice({
     setUserProfile: (state, action: PayloadAction<UserProfile>) => {
       state.profile = action.payload;
     },
-    loginSuccess: (state) => {
+    loginSuccess: (state, action: PayloadAction<UserProfile | undefined>) => {
+      if (action.payload) {
+        state.profile = action.payload;
+      }
       state.isAuthenticated = true;
     },
     logout: (state) => {
+      state.profile = null;
       state.isAuthenticated = false;
     },
     clearUser: (state) => {

@@ -23,6 +23,7 @@ import {
   TrashIcon,
   PrinterIcon,
   EditIcon,
+  WalletIcon,
 } from '../components/common/Icons';
 import { Colors, Typography, Spacing } from '../constants';
 
@@ -32,6 +33,15 @@ interface ShortageItem {
   qtyIn: string;
   qtyOut: string;
   shortage: string;
+}
+
+interface CostingItem {
+  id: string;
+  vendor: string;
+  description: string;
+  qty: string;
+  rate: string;
+  total: string;
 }
 
 interface EventCalendarScreenProps {
@@ -60,10 +70,26 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
     { id: '2', item: 'Ayaz Panel', qtyIn: '0', qtyOut: '0', shortage: '0' },
   ]);
 
+  const [costingItems, setCostingItems] = useState<CostingItem[]>([
+    { id: '1', vendor: 'Abid contractor', description: '', qty: '0', rate: '0', total: '0.00' },
+    { id: '2', vendor: 'Ashok night', description: '', qty: '0', rate: '0', total: '0.00' },
+    { id: '3', vendor: 'Select Vendor', description: '', qty: '0', rate: '0', total: '0.00' },
+    { id: '4', vendor: 'Select Vendor', description: '', qty: '0', rate: '0', total: '0.00' },
+    { id: '5', vendor: 'Ahsan Inspectum SMD (Screen)', description: 'sskaksha', qty: '1', rate: '1000', total: '1,000.00' },
+    { id: '6', vendor: 'Abdullah Catering', description: '', qty: '0', rate: '0', total: '0.00' },
+    { id: '7', vendor: 'Select Vendor', description: 'rfvrfvrfvrfvf', qty: '4', rate: '555', total: '2,220.00' },
+  ]);
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [newItemQtyIn, setNewItemQtyIn] = useState('');
   const [newItemQtyOut, setNewItemQtyOut] = useState('');
+
+  const [isAddCostingModalOpen, setIsAddCostingModalOpen] = useState(false);
+  const [newVendor, setNewVendor] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [newQty, setNewQty] = useState('');
+  const [newRate, setNewRate] = useState('');
 
   const handleAddShortageItem = () => {
     if (!newItemName) return;
@@ -91,12 +117,41 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
     setShortageItems((prev) => prev.filter((item) => item.id !== id));
   };
 
+  const handleAddCostingItem = () => {
+    if (!newVendor) return;
+    const q = parseFloat(newQty) || 0;
+    const r = parseFloat(newRate) || 0;
+    const itemTotal = q * r;
+    const formattedTotal = itemTotal > 0 ? itemTotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '0.00';
+
+    setCostingItems((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        vendor: newVendor,
+        description: newDescription,
+        qty: newQty || '0',
+        rate: newRate || '0',
+        total: formattedTotal,
+      },
+    ]);
+    setNewVendor('');
+    setNewDescription('');
+    setNewQty('');
+    setNewRate('');
+    setIsAddCostingModalOpen(false);
+  };
+
+  const handleRemoveCostingItem = (id: string) => {
+    setCostingItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
   const handleEditEvent = () => {
     Alert.alert('Edit Event', 'Event details can now be updated.');
   };
 
   const handleExport = () => {
-    Alert.alert('Export Event', 'Event details and shortage report generated as PDF.');
+    Alert.alert('Export Event', 'Event details, shortage, and costing report generated as PDF.');
   };
 
   return (
@@ -131,7 +186,7 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
 
           <View style={styles.dividerLine} />
 
-          {/* Details Grid - Vector Icons Used Instead of Emojis */}
+          {/* Details Grid */}
           <View style={styles.detailsGrid}>
             <View style={styles.gridCell}>
               <View style={styles.cellHeaderRow}>
@@ -235,6 +290,55 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
           })}
         </View>
 
+        {/* Costing Section (Placed Right Below Return / Shortage Table) */}
+        <View style={styles.shortageCard}>
+          <View style={styles.shortageHeaderBar}>
+            <View style={styles.shortageTitleRow}>
+              <WalletIcon size={18} color="#FFFFFF" />
+              <Text style={styles.shortageTitle}>Costing</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.addShortageButton}
+              onPress={() => setIsAddCostingModalOpen(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.addShortageButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Costing Table */}
+          <View style={styles.tableHeaderRow}>
+            <Text style={[styles.tableHeadCell, { flex: 1.8 }]}>Vendor</Text>
+            <Text style={[styles.tableHeadCell, { flex: 2 }]}>Product Description</Text>
+            <Text style={[styles.tableHeadCell, { flex: 0.8, textAlign: 'center' }]}>Qty</Text>
+            <Text style={[styles.tableHeadCell, { flex: 1, textAlign: 'center' }]}>Rate</Text>
+            <Text style={[styles.tableHeadCell, { flex: 1.2, textAlign: 'right' }]}>Total</Text>
+            <Text style={[styles.tableHeadCell, { flex: 0.8, textAlign: 'center' }]}>Action</Text>
+          </View>
+
+          {costingItems.map((item) => (
+            <View key={item.id} style={styles.tableBodyRow}>
+              <Text style={[styles.tableBodyCell, { flex: 1.8, fontWeight: '600' }]} numberOfLines={1}>
+                {item.vendor}
+              </Text>
+              <Text style={[styles.tableBodyCell, { flex: 2, color: Colors.textSecondary }]} numberOfLines={1}>
+                {item.description || '-'}
+              </Text>
+              <Text style={[styles.tableBodyCell, { flex: 0.8, textAlign: 'center' }]}>{item.qty}</Text>
+              <Text style={[styles.tableBodyCell, { flex: 1, textAlign: 'center' }]}>{item.rate}</Text>
+              <Text style={[styles.tableBodyCell, { flex: 1.2, textAlign: 'right', fontWeight: 'bold' }]}>
+                {item.total}
+              </Text>
+              <TouchableOpacity
+                style={{ flex: 0.8, alignItems: 'center' }}
+                onPress={() => handleRemoveCostingItem(item.id)}
+              >
+                <TrashIcon size={16} color={Colors.accentRed} />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+
         {/* Bottom Export / Download Button */}
         <TouchableOpacity
           style={styles.exportButton}
@@ -293,6 +397,65 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
               onPress={handleAddShortageItem}
             >
               <Text style={styles.modalSubmitButtonText}>Add Item</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Add Costing Item Modal */}
+      <Modal
+        visible={isAddCostingModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsAddCostingModalOpen(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setIsAddCostingModalOpen(false)}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>Add Costing Item</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Vendor Name"
+              placeholderTextColor={Colors.textMuted}
+              value={newVendor}
+              onChangeText={setNewVendor}
+            />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Product Description"
+              placeholderTextColor={Colors.textMuted}
+              value={newDescription}
+              onChangeText={setNewDescription}
+            />
+            <View style={styles.modalTwoCol}>
+              <View style={{ flex: 1, marginRight: 6 }}>
+                <Text style={styles.modalInputLabel}>Qty</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="0"
+                  placeholderTextColor={Colors.textMuted}
+                  keyboardType="numeric"
+                  value={newQty}
+                  onChangeText={setNewQty}
+                />
+              </View>
+              <View style={{ flex: 1, marginLeft: 6 }}>
+                <Text style={styles.modalInputLabel}>Rate</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="0.00"
+                  placeholderTextColor={Colors.textMuted}
+                  keyboardType="numeric"
+                  value={newRate}
+                  onChangeText={setNewRate}
+                />
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.modalSubmitButton}
+              onPress={handleAddCostingItem}
+            >
+              <Text style={styles.modalSubmitButtonText}>Add Costing Item</Text>
             </TouchableOpacity>
           </Pressable>
         </Pressable>
@@ -379,7 +542,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.cardBackground,
     borderRadius: Spacing.borderRadius.lg,
     overflow: 'hidden',
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
     borderWidth: 1,
     borderColor: Colors.borderLight,
   },

@@ -9,6 +9,7 @@ import { DashboardScreen } from './src/screens/DashboardScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { NewBookingScreen } from './src/screens/NewBookingScreen';
 import { EventCalendarScreen } from './src/screens/EventCalendarScreen';
+import { DailyExpenseScreen } from './src/screens/DailyExpenseScreen';
 
 interface AnimatedScreenWrapperProps {
   children: React.ReactNode;
@@ -74,6 +75,13 @@ function MainAppNavigator(): React.JSX.Element {
       screenTitle === 'Tentative Orders'
     ) {
       setCurrentScreen('EVENT_CALENDAR');
+    } else if (
+      screenTitle === 'Daily Expenses' ||
+      screenTitle === 'Daily Expense' ||
+      screenTitle === 'Daily Cash Transaction' ||
+      screenTitle === 'Sales & Payments'
+    ) {
+      setCurrentScreen('DAILY_EXPENSE');
     } else {
       setCurrentScreen('DASHBOARD');
     }
@@ -106,6 +114,13 @@ function MainAppNavigator(): React.JSX.Element {
     activeView = (
       <EventCalendarScreen
         eventData={savedEventData}
+        onBack={() => setCurrentScreen('DASHBOARD')}
+        onHome={() => setCurrentScreen('DASHBOARD')}
+      />
+    );
+  } else if (currentScreen === 'DAILY_EXPENSE') {
+    activeView = (
+      <DailyExpenseScreen
         onBack={() => setCurrentScreen('DASHBOARD')}
         onHome={() => setCurrentScreen('DASHBOARD')}
       />

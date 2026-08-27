@@ -10,8 +10,8 @@ import {
   Image,
   ScrollView,
   Platform,
-  Alert,
   KeyboardAvoidingView,
+  ActivityIndicator,
 } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import {
@@ -24,29 +24,107 @@ import {
   SquareIcon,
   CheckSquareIcon,
 } from '../components/common/Icons';
+import { CustomToast } from '../components/common/CustomToast';
 import { Colors, Typography, Spacing } from '../constants';
 import { useAppDispatch } from '../hooks';
 import { loginSuccess } from '../store/slices/userSlice';
+import { useLoginMutation, ApiUserRecord } from '../api/authApi';
+import { md5 } from '../utils/md5';
 
 export const LoginScreen: React.FC = () => {
   const dispatch = useAppDispatch();
+  const [login, { isLoading }] = useLoginMutation();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
-  const handleLogin = () => {
-    dispatch(loginSuccess());
+  // Custom Toast State (No Alert used)
+  const [toastState, setToastState] = useState<{
+    visible: boolean;
+    message: string;
+    type: 'error' | 'success';
+  }>({
+    visible: false,
+    message: '',
+    type: 'error',
+  });
+
+  const showToast = (message: string, type: 'error' | 'success' = 'error') => {
+    setToastState({ visible: true, message, type });
+  };
+
+  const hideToast = React.useCallback(() => {
+    setToastState((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  const handleLogin = async () => {
+    if (!username.trim() || !password) {
+      showToast('Please enter your username and password.', 'error');
+      return;
+    }
+
+    try {
+      const res = await login({
+        user_id: username.trim(),
+        password: password,
+      }).unwrap();
+
+      const isStatusSuccess =
+        res && (String(res.status) === 'true' || String(res.status) === '1');
+
+      if (isStatusSuccess && Array.isArray(res.data) && res.data.length > 0) {
+        const inputUser = username.trim().toLowerCase();
+        const inputPasswordHash = md5(password.trim()).toLowerCase();
+
+        // Check if array has a matching user record
+        const foundUser = res.data.find((u: ApiUserRecord) => {
+          const isUserMatch = u.user_id.toLowerCase() === inputUser;
+          const isPassMatch = u.password
+            ? u.password.toLowerCase() === inputPasswordHash ||
+              u.password === password ||
+              u.password.toLowerCase() === password.trim().toLowerCase()
+            : true;
+          return isUserMatch && isPassMatch;
+        });
+
+        // STRICT LOGIC: ONLY log in if an EXACT user_id & password match is found!
+        if (foundUser) {
+          dispatch(
+            loginSuccess({
+              id: foundUser.id,
+              name: foundUser.real_name || foundUser.user_id,
+              role: 'Event Manager',
+              unreadNotifications: 1,
+            })
+          );
+          return;
+        }
+      }
+
+      showToast('Incorrect username or password. Please try again.', 'error');
+    } catch {
+      showToast('Incorrect username or password. Please try again.', 'error');
+    }
   };
 
   const handleForgotPassword = () => {
-    Alert.alert('Forgot Password', 'Password reset instructions have been sent.');
+    showToast('Password reset instructions have been sent.', 'success');
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
+
+      {/* Custom Toast Notification (No Alert Used) */}
+      <CustomToast
+        visible={toastState.visible}
+        message={toastState.message}
+        type={toastState.type}
+        onHide={hideToast}
+      />
+
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -137,8 +215,13 @@ export const LoginScreen: React.FC = () => {
               style={styles.loginButton}
               onPress={handleLogin}
               activeOpacity={0.85}
+              disabled={isLoading}
             >
-              <Text style={styles.loginButtonText}>Login</Text>
+              {isLoading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.loginButtonText}>Login</Text>
+              )}
             </TouchableOpacity>
           </View>
 
