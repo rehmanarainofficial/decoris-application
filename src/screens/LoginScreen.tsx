@@ -163,7 +163,7 @@ export const LoginScreen: React.FC = () => {
 
           <View style={styles.footerContainer}>
             <Text style={styles.footerText}>
-              © 2025 Decoris. All rights reserved.
+              © {new Date().getFullYear()} Decoris. All rights reserved.
             </Text>
           </View>
         </ScrollView>
