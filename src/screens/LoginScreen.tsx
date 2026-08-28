@@ -104,8 +104,20 @@ export const LoginScreen: React.FC = () => {
       }
 
       showToast('Incorrect username or password. Please try again.', 'error');
-    } catch {
-      showToast('Incorrect username or password. Please try again.', 'error');
+    } catch (err: any) {
+      if (
+        err?.status === 'FETCH_ERROR' ||
+        err?.status === 'PARSING_ERROR' ||
+        err?.error?.includes('NetworkError') ||
+        err?.message?.includes('Network')
+      ) {
+        showToast(
+          'Network Error: Unable to connect to server. Please check your internet connection.',
+          'error'
+        );
+      } else {
+        showToast('Incorrect username or password. Please try again.', 'error');
+      }
     }
   };
 
