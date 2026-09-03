@@ -108,8 +108,8 @@ export const LoginScreen: React.FC = () => {
       if (
         err?.status === 'FETCH_ERROR' ||
         err?.status === 'PARSING_ERROR' ||
-        err?.error?.includes('NetworkError') ||
-        err?.message?.includes('Network')
+        (err?.error && String(err.error).toLowerCase().includes('network')) ||
+        (err?.message && String(err.message).toLowerCase().includes('network'))
       ) {
         showToast(
           'Network Error: Unable to connect to server. Please check your internet connection.',
