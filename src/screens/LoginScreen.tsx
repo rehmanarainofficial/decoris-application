@@ -15,8 +15,6 @@ import {
 } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import {
-  CrownIcon,
-  FlourishLoopIcon,
   UserOutlineIcon,
   LockOutlineIcon,
   EyeOutlineIcon,
@@ -24,6 +22,7 @@ import {
   SquareIcon,
   CheckSquareIcon,
 } from '../components/common/Icons';
+import { BackstageLogo } from '../components/common/BackstageLogo';
 import { CustomToast } from '../components/common/CustomToast';
 import { Colors, Typography, Spacing } from '../constants';
 import { useAppDispatch } from '../hooks';
@@ -89,7 +88,6 @@ export const LoginScreen: React.FC = () => {
           return isUserMatch && isPassMatch;
         });
 
-        // STRICT LOGIC: ONLY log in if an EXACT user_id & password match is found!
         if (foundUser) {
           dispatch(
             loginSuccess({
@@ -146,17 +144,7 @@ export const LoginScreen: React.FC = () => {
           contentContainerStyle={styles.scrollContent}
         >
           <View style={styles.brandContainer}>
-            <View style={styles.crownWrapper}>
-              <CrownIcon size={24} color={Colors.accentGold} />
-            </View>
-            <Text style={styles.logoText}>Decoris</Text>
-            <View style={styles.flourishWrapper}>
-              <FlourishLoopIcon width={85} height={16} color={Colors.accentGold} />
-            </View>
-            <Text style={styles.taglineText}>
-              Events <Text style={styles.taglineDivider}>|</Text> Catering{' '}
-              <Text style={styles.taglineDivider}>|</Text> Excellence
-            </Text>
+            <BackstageLogo size="large" variant="dark" showSubtitle={true} />
           </View>
 
           <View style={styles.headerTextContainer}>
@@ -258,7 +246,7 @@ export const LoginScreen: React.FC = () => {
 
           <View style={styles.footerContainer}>
             <Text style={styles.footerText}>
-              © {new Date().getFullYear()} Decoris. All rights reserved.
+              © {new Date().getFullYear()} BackStage. All rights reserved.
             </Text>
           </View>
         </ScrollView>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Alert, StatusBar } from 'react-native';
-import { BellIcon, CrownIcon, FlourishLoopIcon, LogOutIcon } from './Icons';
+import { BellIcon, LogOutIcon } from './Icons';
+import { BackstageLogo } from './BackstageLogo';
 import { Colors, Typography, Spacing } from '../../constants';
 
 interface HeaderProps {
@@ -26,13 +27,7 @@ export const Header: React.FC<HeaderProps> = ({
     <View style={styles.outerContainer}>
       <View style={styles.headerRow}>
         <View style={styles.logoContainer}>
-          <View style={styles.crownWrapper}>
-            <CrownIcon size={18} color={Colors.accentGold} />
-          </View>
-          <Text style={styles.logoText}>Decoris</Text>
-          <View style={styles.flourishWrapper}>
-            <FlourishLoopIcon width={68} height={12} color={Colors.accentGold} />
-          </View>
+          <BackstageLogo size="small" variant="dark" />
         </View>
 
         <View style={styles.rightActionsRow}>

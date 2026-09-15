@@ -6,3 +6,4 @@ export * from './CustomToast';
 export * from './ActionCard';
 export * from './StatCard';
 export * from './Icons';
+export * from './BackstageLogo';

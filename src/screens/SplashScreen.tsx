@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
-import { FlourishLoopIcon } from '../components/common/Icons';
+import { BackstageLogo } from '../components/common/BackstageLogo';
 import { Colors, Typography, Spacing } from '../constants';
 
 interface SplashScreenProps {
@@ -55,33 +55,12 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
           },
         ]}
       >
-        {/* App Icon Artwork Preview */}
-        <View style={styles.iconCircleWrapper}>
-          <Image
-            source={require('../assets/images/app_icon.png')}
-            style={styles.iconImage}
-            resizeMode="cover"
-          />
-        </View>
-
-        {/* Brand Name */}
-        <Text style={styles.brandTitle}>Decoris</Text>
-
-        {/* Gold Flourish */}
-        <View style={styles.flourishWrapper}>
-          <FlourishLoopIcon width={90} height={18} color={Colors.accentGold} />
-        </View>
-
-        {/* Tagline */}
-        <Text style={styles.taglineText}>
-          Events <Text style={styles.taglineDivider}>|</Text> Catering{' '}
-          <Text style={styles.taglineDivider}>|</Text> Excellence
-        </Text>
+        <BackstageLogo size="large" variant="light" showSubtitle={true} />
       </Animated.View>
 
       {/* Loading Indicator */}
       <View style={styles.loaderContainer}>
-        <ActivityIndicator size="small" color={Colors.accentGold} />
+        <ActivityIndicator size="small" color="#DC2626" />
       </View>
     </View>
   );
