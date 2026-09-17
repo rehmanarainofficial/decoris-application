@@ -9,7 +9,7 @@ interface WelcomeBannerProps {
 }
 
 export const WelcomeBanner: React.FC<WelcomeBannerProps> = ({
-  userName = 'Ahsan',
+  userName = 'User',
   subtitle = "Let's manage your orders and business today.",
 }) => {
   return (

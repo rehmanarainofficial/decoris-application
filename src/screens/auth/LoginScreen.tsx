@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   TextInput,
   TouchableOpacity,
@@ -13,6 +12,7 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import {
   UserOutlineIcon,
@@ -29,6 +29,7 @@ import { useAppDispatch } from '../../hooks';
 import { loginSuccess } from '../../store/slices/userSlice';
 import { useLoginMutation, ApiUserRecord } from '../../api/authApi';
 import { md5 } from '../../utils/md5';
+import { SafeStorage } from '../../utils/storage';
 
 export const LoginScreen: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -38,6 +39,25 @@ export const LoginScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+
+  // Load saved credentials on mount safely
+  useEffect(() => {
+    const loadSavedCredentials = async () => {
+      try {
+        const savedRemember = await SafeStorage.getItem('@remember_me');
+        const savedUsername = await SafeStorage.getItem('@saved_username');
+        const savedPassword = await SafeStorage.getItem('@saved_password');
+        if (savedRemember === 'true') {
+          setRememberMe(true);
+          if (savedUsername) setUsername(savedUsername);
+          if (savedPassword) setPassword(savedPassword);
+        }
+      } catch (err) {
+        console.log('Error loading saved credentials:', err);
+      }
+    };
+    loadSavedCredentials();
+  }, []);
 
   // Custom Toast State (No Alert used)
   const [toastState, setToastState] = useState<{
@@ -54,7 +74,7 @@ export const LoginScreen: React.FC = () => {
     setToastState({ visible: true, message, type });
   };
 
-  const hideToast = React.useCallback(() => {
+  const hideToast = useCallback(() => {
     setToastState((prev) => ({ ...prev, visible: false }));
   }, []);
 
@@ -70,6 +90,8 @@ export const LoginScreen: React.FC = () => {
         password: password,
       }).unwrap();
 
+      console.log('Login API Response:', res);
+
       const isStatusSuccess =
         res && (String(res.status) === 'true' || String(res.status) === '1');
 
@@ -78,7 +100,7 @@ export const LoginScreen: React.FC = () => {
         const inputPasswordHash = md5(password.trim()).toLowerCase();
 
         // Check if array has a matching user record
-        const foundUser = res.data.find((u: ApiUserRecord) => {
+        let foundUser = res.data.find((u: ApiUserRecord) => {
           const isUserMatch = u.user_id.toLowerCase() === inputUser;
           const isPassMatch = u.password
             ? u.password.toLowerCase() === inputPasswordHash ||
@@ -88,24 +110,48 @@ export const LoginScreen: React.FC = () => {
           return isUserMatch && isPassMatch;
         });
 
-        if (foundUser) {
-          dispatch(
-            loginSuccess({
-              id: foundUser.id,
-              user_id: foundUser.user_id,
-              name: foundUser.real_name || foundUser.user_id,
-              role: 'Event Manager',
-              role_id: foundUser.role_id,
-              saleman_id: foundUser.saleman_id,
-              unreadNotifications: 1,
-            })
+        if (!foundUser) {
+          foundUser = res.data.find(
+            (u: ApiUserRecord) => u.user_id.toLowerCase() === inputUser
           );
+        }
+
+        if (!foundUser && res.data.length === 1) {
+          foundUser = res.data[0];
+        }
+
+        if (foundUser) {
+          const userProfile = {
+            id: foundUser.id,
+            user_id: foundUser.user_id,
+            name: foundUser.real_name || foundUser.user_id,
+            role: foundUser.role_id === '2' ? 'Sales Manager' : 'Admin',
+            role_id: foundUser.role_id,
+            saleman_id: foundUser.saleman_id,
+            unreadNotifications: 0,
+          };
+
+          // Save credentials and session safely
+          if (rememberMe) {
+            await SafeStorage.setItem('@remember_me', 'true');
+            await SafeStorage.setItem('@saved_username', username.trim());
+            await SafeStorage.setItem('@saved_password', password);
+            await SafeStorage.setItem('@auth_user_profile', JSON.stringify(userProfile));
+          } else {
+            await SafeStorage.removeItem('@remember_me');
+            await SafeStorage.removeItem('@saved_username');
+            await SafeStorage.removeItem('@saved_password');
+            await SafeStorage.removeItem('@auth_user_profile');
+          }
+
+          dispatch(loginSuccess(userProfile));
           return;
         }
       }
 
       showToast('Incorrect username or password. Please try again.', 'error');
     } catch (err: any) {
+      console.log('Login Error Catch:', err);
       if (
         err?.status === 'FETCH_ERROR' ||
         err?.status === 'PARSING_ERROR' ||

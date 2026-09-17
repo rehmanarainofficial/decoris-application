@@ -3,12 +3,12 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   ScrollView,
   TextInput,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenHeader, CalculatorIcon, SearchIcon, TrashIcon } from '../../components/common';
 import { Colors, Typography, Spacing } from '../../constants';
 

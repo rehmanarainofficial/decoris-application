@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   ScrollView,
   TextInput,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenHeader, ShortingIcon, SearchIcon } from '../../components/common';
 import { Colors, Typography, Spacing } from '../../constants';
 import { useGetStockMasterQuery } from '../../api/stockApi';

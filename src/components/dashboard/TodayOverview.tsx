@@ -16,29 +16,69 @@ import {
 } from '../common/Icons';
 import { useAppDispatch, useAppSelector } from '../../hooks';
 import { setSelectedFilter, toggleFilterDropdown } from '../../store/slices/dashboardSlice';
-import { useGetOverviewByFilterQuery } from '../../api/dashboardApi';
+import { useGetEventQuotationHeadersQuery, EventQuotationHeaderItem } from '../../api/bookingApi';
 import { TimeFilter } from '../../types';
 import { Colors, Typography, Spacing } from '../../constants';
 
-const FILTER_OPTIONS: TimeFilter[] = ['Today', 'This Week', 'This Month', 'This Year'];
+const FILTER_OPTIONS: TimeFilter[] = ['This Month', 'Today', 'This Week', 'This Year'];
 
-export const TodayOverview: React.FC = () => {
+interface TodayOverviewProps {
+  onNavigate?: (screenTitle: string) => void;
+}
+
+export const TodayOverview: React.FC<TodayOverviewProps> = ({ onNavigate }) => {
   const dispatch = useAppDispatch();
   const { selectedFilter, isFilterDropdownOpen } = useAppSelector(
     (state) => state.dashboard
   );
 
-  const { data: overviewData } = useGetOverviewByFilterQuery(selectedFilter);
+  const { data: headerResponse } = useGetEventQuotationHeadersQuery();
+  const apiEvents: EventQuotationHeaderItem[] = headerResponse?.data || [];
 
   const handleSelectFilter = (filter: TimeFilter) => {
     dispatch(setSelectedFilter(filter));
   };
 
+  // Compute live filtered stats based on selected time filter
+  const now = new Date();
+  const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+  const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const currentMonth = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+  const currentYear = `${now.getFullYear()}`;
+
+  const filteredEvents = apiEvents.filter((item) => {
+    const eventDate = (item.function_date || item.ord_date || '').trim();
+    if (!eventDate) return true;
+
+    if (selectedFilter === 'Today') {
+      return eventDate === todayStr;
+    } else if (selectedFilter === 'This Week') {
+      const d = new Date(eventDate);
+      if (isNaN(d.getTime())) return true;
+      const diffDays = Math.abs((now.getTime() - d.getTime()) / (1000 * 3600 * 24));
+      return diffDays <= 7;
+    } else if (selectedFilter === 'This Month') {
+      return eventDate.startsWith(currentMonth);
+    } else if (selectedFilter === 'This Year') {
+      return eventDate.startsWith(currentYear);
+    }
+    return true;
+  });
+
+  const tentativeCount = filteredEvents.filter((e) => String(e.event_status) === '1').length;
+  const confirmedCount = filteredEvents.filter((e) => String(e.event_status) === '2').length;
+  const newOrdersCount = filteredEvents.length;
+  const totalSales = filteredEvents.reduce(
+    (sum, e) => sum + (parseFloat(e.total) || 0),
+    0
+  );
+  const totalSalesFormatted = Math.round(totalSales).toLocaleString();
+
   return (
     <View style={styles.container}>
       <View style={styles.card}>
         <View style={styles.headerRow}>
-          <Text style={styles.sectionTitle}>Today's Overview</Text>
+          <Text style={styles.sectionTitle}>Overview</Text>
           <TouchableOpacity
             style={styles.dropdownButton}
             onPress={() => dispatch(toggleFilterDropdown())}
@@ -51,31 +91,34 @@ export const TodayOverview: React.FC = () => {
 
         <View style={styles.statsGrid}>
           <StatCard
-            value={overviewData?.tentativeCount ?? 12}
+            value={tentativeCount}
             label="Tentative"
+            onPress={() => onNavigate?.('Tentative')}
             renderIcon={() => (
               <TentativeOrdersIcon size={18} color={Colors.primary} />
             )}
           />
 
           <StatCard
-            value={overviewData?.confirmedCount ?? 7}
+            value={confirmedCount}
             label="Confirmed"
+            onPress={() => onNavigate?.('Confirmed')}
             renderIcon={() => (
               <ConfirmedOrdersIcon size={18} color={Colors.primary} />
             )}
           />
 
           <StatCard
-            value={overviewData?.newOrdersCount ?? 5}
-            label="New Orders"
+            value={newOrdersCount}
+            label="Total Orders"
+            onPress={() => onNavigate?.('Event Calendar')}
             renderIcon={() => (
               <TentativeOrdersIcon size={18} color={Colors.primary} />
             )}
           />
 
           <StatCard
-            value={overviewData?.totalSalesFormatted ?? '285,000'}
+            value={totalSalesFormatted}
             label="Total Sales"
             isLast={true}
             renderIcon={() => (

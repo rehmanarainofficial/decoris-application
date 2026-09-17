@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { TouchableOpacity } from 'react-native';
 import { Colors, Typography, Spacing } from '../../constants';
 
 interface StatCardProps {
@@ -7,6 +8,7 @@ interface StatCardProps {
   value: string | number;
   label: string;
   isLast?: boolean;
+  onPress?: () => void;
 }
 
 export const StatCard: React.FC<StatCardProps> = ({
@@ -14,9 +16,10 @@ export const StatCard: React.FC<StatCardProps> = ({
   value,
   label,
   isLast = false,
+  onPress,
 }) => {
-  return (
-    <View style={[styles.container, !isLast && styles.withBorder]}>
+  const content = (
+    <>
       <View style={styles.topRow}>
         <View style={styles.iconWrapper}>{renderIcon()}</View>
         <Text
@@ -31,6 +34,24 @@ export const StatCard: React.FC<StatCardProps> = ({
       <Text style={styles.labelText} numberOfLines={1}>
         {label}
       </Text>
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity
+        style={[styles.container, !isLast && styles.withBorder]}
+        onPress={onPress}
+        activeOpacity={0.7}
+      >
+        {content}
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View style={[styles.container, !isLast && styles.withBorder]}>
+      {content}
     </View>
   );
 };

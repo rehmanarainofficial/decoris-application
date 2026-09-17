@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   TextInput,
   TouchableOpacity,
@@ -12,6 +11,7 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../../components/common/ScreenHeader';
 import {
   CustomDropdownModal,
@@ -32,7 +32,11 @@ import {
 import { Colors, Typography, Spacing } from '../../constants';
 import { useGetStockMasterQuery, StockMasterItem } from '../../api/stockApi';
 import { useGetSalesmenQuery } from '../../api/salesmanApi';
-import { usePostEventQuotationMutation } from '../../api/bookingApi';
+import {
+  usePostEventQuotationMutation,
+  useGetViewDataQuery,
+  EventQuotationHeaderItem,
+} from '../../api/bookingApi';
 import { useAppSelector } from '../../hooks';
 
 interface ItemRow {
@@ -47,6 +51,7 @@ interface NewBookingScreenProps {
   onBack: () => void;
   onHome: () => void;
   onSaveSuccess: (eventData: any) => void;
+  editEventData?: EventQuotationHeaderItem | any;
 }
 
 // Helper to format amount without trailing zero decimals (e.g. 100 instead of 100.00)
@@ -81,46 +86,80 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
   onBack,
   onHome,
   onSaveSuccess,
+  editEventData,
 }) => {
+  const isEditing = Boolean(editEventData);
+
   // Current Logged-in User Profile
-  const user = useAppSelector(state => state.user.profile);
+  const user = useAppSelector((state) => state.user.profile);
   const isRole2 = String(user?.role_id) === '2';
 
   // API Hooks
-  const { data: stockData, isLoading: isStockLoading } =
-    useGetStockMasterQuery();
+  const { data: stockData, isLoading: isStockLoading } = useGetStockMasterQuery();
   const stockItems = stockData?.data || [];
 
-  const { data: salesmanData, isLoading: isSalesmanLoading } =
-    useGetSalesmenQuery(undefined, {
-      skip: !isRole2,
-    });
+  const { data: salesmanData, isLoading: isSalesmanLoading } = useGetSalesmenQuery(undefined, {
+    skip: !isRole2,
+  });
   const salesmen = salesmanData?.data || [];
 
-  const [postEventQuotation, { isLoading: isSubmitting }] =
-    usePostEventQuotationMutation();
+  const [postEventQuotation, { isLoading: isSubmitting }] = usePostEventQuotationMutation();
 
-  // Form State
-  const [orderStatus, setOrderStatus] = useState<'1' | '2'>('1'); // '1' = Tentative, '2' = Confirmed
-  const [customerName, setCustomerName] = useState('');
-  const [contactNo, setContactNo] = useState('');
-  const [eventDate, setEventDate] = useState('');
-  const [eventTime, setEventTime] = useState('');
-  const [venue, setVenue] = useState('');
-  const [guestCount, setGuestCount] = useState('');
+  // Form State initialized with editEventData if available
+  const [orderStatus, setOrderStatus] = useState<'1' | '2'>(
+    editEventData?.event_status === '2' ? '2' : '1'
+  );
+  const [customerName, setCustomerName] = useState(
+    editEventData?.name || editEventData?.party_name || editEventData?.customerName || ''
+  );
+  const [contactNo, setContactNo] = useState(
+    editEventData?.contact_no || editEventData?.contactNo || ''
+  );
+  const [eventDate, setEventDate] = useState(
+    editEventData?.function_date || editEventData?.eventDate || ''
+  );
+  const [eventTime, setEventTime] = useState(
+    editEventData?.time || editEventData?.f_time || editEventData?.eventTime || ''
+  );
+  const [venue, setVenue] = useState(editEventData?.venue || '');
+  const [guestCount, setGuestCount] = useState(
+    editEventData?.guest
+      ? String(editEventData.guest)
+      : editEventData?.guestCount
+      ? String(editEventData.guestCount)
+      : ''
+  );
 
-  const [salesman, setSalesman] = useState('');
-  const [selectedSalesmanCode, setSelectedSalesmanCode] = useState('');
-  const [advance, setAdvance] = useState('');
-  const [discount, setDiscount] = useState('');
-  const [specialNotes, setSpecialNotes] = useState('');
+  const [salesman, setSalesman] = useState(
+    editEventData?.salesman_name || editEventData?.bookingManager || ''
+  );
+  const [selectedSalesmanCode, setSelectedSalesmanCode] = useState(
+    editEventData?.salesman
+      ? String(editEventData.salesman)
+      : editEventData?.salesman_code || ''
+  );
+  const [advance, setAdvance] = useState(
+    editEventData?.advance
+      ? String(editEventData.advance)
+      : editEventData?.so_advance
+      ? String(editEventData.so_advance)
+      : ''
+  );
+  const [discount, setDiscount] = useState(
+    editEventData?.discount1
+      ? String(editEventData.discount1)
+      : editEventData?.discount
+      ? String(editEventData.discount)
+      : ''
+  );
+  const [specialNotes, setSpecialNotes] = useState(
+    editEventData?.comments || editEventData?.specialNotes || ''
+  );
 
   // Modals & Popups
   const [isSalesmanModalOpen, setIsSalesmanModalOpen] = useState(false);
   const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
-  const [activeRowIdForStock, setActiveRowIdForStock] = useState<string | null>(
-    null,
-  );
+  const [activeRowIdForStock, setActiveRowIdForStock] = useState<string | null>(null);
 
   // Toast Notification
   const [toastState, setToastState] = useState<{
@@ -133,23 +172,77 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
     type: 'success',
   });
 
-  const showToast = (
-    message: string,
-    type: 'success' | 'error' = 'success',
-  ) => {
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToastState({ visible: true, message, type });
   };
 
-  const hideToast = React.useCallback(() => {
-    setToastState(prev => ({ ...prev, visible: false }));
+  const hideToast = useCallback(() => {
+    setToastState((prev) => ({ ...prev, visible: false }));
   }, []);
 
-  const [items, setItems] = useState<ItemRow[]>([
-    { id: '1', stock_id: '', detail: '', qty: '', rate: '' },
-  ]);
+  // View Data Query for Editing Order with items detail
+  const orderNumberToFetch = editEventData?.order_no || editEventData?.trans_no;
+  const { data: viewData, isLoading: isViewDataLoading } = useGetViewDataQuery(
+    { trans_no: orderNumberToFetch, type: '32' },
+    { skip: !isEditing || !orderNumberToFetch }
+  );
+
+  const [items, setItems] = useState<ItemRow[]>(() => {
+    if (editEventData?.items && Array.isArray(editEventData.items) && editEventData.items.length > 0) {
+      return editEventData.items.map((it: any, idx: number) => ({
+        id: String(idx + 1),
+        stock_id: it.stock_id || '',
+        detail: it.detail || it.description || '',
+        qty: String(it.qty || it.quantity || '0'),
+        rate: String(it.rate || it.unit_price || '0'),
+      }));
+    }
+    return [{ id: '1', stock_id: '', detail: '', qty: '', rate: '' }];
+  });
+
+  // Populate data from view_data.php when fetched
+  useEffect(() => {
+    if (viewData) {
+      console.log('=== [VIEW_DATA API RESPONSE RECEIVED] ===', viewData);
+      if (viewData.data_header && viewData.data_header.length > 0) {
+        const header = viewData.data_header[0];
+        if (header.name) setCustomerName(header.name);
+        if (header.contact_no) setContactNo(header.contact_no);
+        if (header.function_date) setEventDate(header.function_date);
+        if (header.time) setEventTime(header.time);
+        if (header.venue) setVenue(header.venue);
+        if (header.guest) setGuestCount(String(header.guest));
+        if (header.salesman_name) setSalesman(header.salesman_name);
+        if (header.salesman) setSelectedSalesmanCode(String(header.salesman));
+        if (header.advance) setAdvance(String(header.advance));
+        if (header.discount1 || header.discount) setDiscount(String(header.discount1 || header.discount));
+        if (header.comments) setSpecialNotes(header.comments);
+        if (header.event_status) setOrderStatus(header.event_status === '2' ? '2' : '1');
+      }
+
+      if (viewData.data_detail && Array.isArray(viewData.data_detail) && viewData.data_detail.length > 0) {
+        const mappedItems: ItemRow[] = viewData.data_detail.map((d, idx) => ({
+          id: String(d.id || idx + 1),
+          stock_id: d.stock_id || '',
+          detail: d.description || '',
+          qty: String(d.quantity || '0'),
+          rate: String(d.unit_price || '0'),
+        }));
+        setItems(mappedItems);
+      }
+    }
+  }, [viewData]);
+
+  // Keep salesman name in sync if code was pre-filled
+  useEffect(() => {
+    if (selectedSalesmanCode && salesmen.length > 0 && !salesman) {
+      const found = salesmen.find((s) => s.salesman_code === selectedSalesmanCode);
+      if (found) setSalesman(found.salesman_name);
+    }
+  }, [selectedSalesmanCode, salesmen, salesman]);
 
   const handleAddItem = () => {
-    setItems(prev => [
+    setItems((prev) => [
       ...prev,
       {
         id: Date.now().toString(),
@@ -163,23 +256,19 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
 
   const handleRemoveItem = (id: string) => {
     if (items.length <= 1) return;
-    setItems(prev => prev.filter(item => item.id !== id));
+    setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const handleItemChange = (
-    id: string,
-    field: keyof ItemRow,
-    value: string,
-  ) => {
-    setItems(prev =>
-      prev.map(item => (item.id === id ? { ...item, [field]: value } : item)),
+  const handleItemChange = (id: string, field: keyof ItemRow, value: string) => {
+    setItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     );
   };
 
   const handleSelectStockItem = (selectedStock: StockMasterItem) => {
     if (!activeRowIdForStock) return;
-    setItems(prev =>
-      prev.map(item => {
+    setItems((prev) =>
+      prev.map((item) => {
         if (item.id === activeRowIdForStock) {
           let formattedRate = item.rate;
           if (
@@ -199,14 +288,14 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
           };
         }
         return item;
-      }),
+      })
     );
     setActiveRowIdForStock(null);
   };
 
   const handleSelectSalesman = (salesmanName: string) => {
     setSalesman(salesmanName);
-    const found = salesmen.find(s => s.salesman_name === salesmanName);
+    const found = salesmen.find((s) => s.salesman_name === salesmanName);
     setSelectedSalesmanCode(found?.salesman_code || '');
   };
 
@@ -250,7 +339,7 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
     const grandTotal = calculateGrandTotal();
 
     // Prepare sales order details JSON array
-    const detailsArray = items.map(it => ({
+    const detailsArray = items.map((it) => ({
       description: it.detail.trim(),
       quantity: parseFloat(it.qty) || 0,
       unit_price: parseFloat(it.rate) || 0,
@@ -264,10 +353,15 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
     // Login user id
     const currentUserId = user?.id || user?.user_id || '0';
 
+    // update_id: '1' if editing existing event, '0' if new
+    const updateId = isEditing ? '1' : '0';
+
     const apiPayload = {
-      update_id: '0',
+      update_id: updateId,
+      order_no: editEventData?.order_no || undefined,
       function_date: formatToApiDate(eventDate),
       f_time: eventTime.trim() || '12:00:00 PM',
+      time: eventTime.trim() || '12:00:00 PM',
       party_name: customerName.trim(),
       contact_no: contactNo.trim(),
       guest: guestCount.trim() || '0',
@@ -282,8 +376,12 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
       status: orderStatus,
     };
 
+    console.log('=== [NEW BOOKING SCREEN - SENDING EVENT TO DATABASE] ===');
+    console.log(apiPayload);
+
     try {
       const response = await postEventQuotation(apiPayload).unwrap();
+      console.log('=== [POST EVENT QUOTATION RESPONSE FROM SERVER] ===', response);
       const isSuccess =
         response &&
         (String(response.status) === 'true' ||
@@ -291,30 +389,47 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
           String(response.status) === '1');
 
       if (isSuccess) {
-        showToast('Event quotation saved successfully!', 'success');
+        showToast(
+          isEditing
+            ? 'Event updated successfully!'
+            : 'Event quotation saved successfully!',
+          'success'
+        );
       } else {
         showToast(
-          response?.message || 'Event quotation submitted successfully!',
-          'success',
+          response?.message ||
+            (isEditing
+              ? 'Event updated successfully!'
+              : 'Event quotation submitted successfully!'),
+          'success'
         );
       }
 
-      // Transition to next screen with event data
+      // Transition to calendar screen with updated event data
       const eventData = {
-        fCode: 'BS-F-0001',
+        order_no: editEventData?.order_no || '16',
+        fCode: editEventData?.function_code || 'BS-F-0001',
         customerName: customerName.trim(),
+        name: customerName.trim(),
         contactNo: contactNo.trim(),
+        contact_no: contactNo.trim(),
         eventDate: eventDate.trim(),
+        function_date: eventDate.trim(),
         eventTime: eventTime.trim(),
+        time: eventTime.trim(),
         dateTime: eventDate || eventTime ? `${eventDate} • ${eventTime}` : '',
         venue: venue.trim(),
         guestCount: guestCount.trim(),
+        guest: guestCount.trim(),
         salesman_code: salesmanCodeToSend,
+        salesman: salesmanCodeToSend,
         bookingManager: isRole2 ? salesman || '' : '',
+        salesman_name: isRole2 ? salesman || '' : '',
         role_id: user?.role_id || '',
         user_id: currentUserId,
         specialNotes: specialNotes.trim(),
-        items: items.map(it => ({
+        comments: specialNotes.trim(),
+        items: items.map((it) => ({
           stock_id: it.stock_id || '',
           detail: it.detail.trim(),
           qty: it.qty.trim(),
@@ -323,10 +438,13 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
         })),
         total: subtotal.toString(),
         discount: discount.trim(),
+        discount1: discount.trim(),
         totalAfterDiscount: totalAfterDisc.toString(),
         advance: advance.trim(),
+        so_advance: advance.trim(),
         grandTotal: grandTotal.toString(),
         status: orderStatus,
+        event_status: orderStatus,
       };
 
       setTimeout(() => {
@@ -334,24 +452,34 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
       }, 600);
     } catch (err: any) {
       console.log('Post Event Quotation Error:', err);
-      // Fallback local event transition if offline / demo mode
-      showToast('Event quotation recorded successfully.', 'success');
+      showToast(
+        isEditing
+          ? 'Event update recorded successfully.'
+          : 'Event quotation recorded successfully.',
+        'success'
+      );
       const eventData = {
-        fCode: 'BS-F-0001',
+        order_no: editEventData?.order_no || '16',
+        fCode: editEventData?.function_code || 'BS-F-0001',
         customerName: customerName.trim(),
+        name: customerName.trim(),
         contactNo: contactNo.trim(),
+        contact_no: contactNo.trim(),
         dateTime: eventDate || eventTime ? `${eventDate} • ${eventTime}` : '',
         venue: venue.trim(),
         guestCount: guestCount.trim(),
+        guest: guestCount.trim(),
         salesman_code: salesmanCodeToSend,
         bookingManager: isRole2 ? salesman || '' : '',
         specialNotes: specialNotes.trim(),
+        comments: specialNotes.trim(),
         total: subtotal.toString(),
         discount: discount.trim(),
         totalAfterDiscount: totalAfterDisc.toString(),
         advance: advance.trim(),
         grandTotal: grandTotal.toString(),
         status: orderStatus,
+        event_status: orderStatus,
       };
       setTimeout(() => {
         onSaveSuccess(eventData);
@@ -363,7 +491,7 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
       <ScreenHeader
-        title="Add New Event"
+        title={isEditing ? 'Update Event' : 'Add New Event'}
         onBackPress={onBack}
         onHomePress={onHome}
       />
@@ -624,7 +752,7 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
                 </Text>
               </View>
 
-              {items.map(item => {
+              {items.map((item) => {
                 const itemTotal =
                   (parseFloat(item.qty) || 0) * (parseFloat(item.rate) || 0);
                 return (
@@ -636,7 +764,7 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
                           placeholder="Enter detail"
                           placeholderTextColor={Colors.textMuted}
                           value={item.detail}
-                          onChangeText={v =>
+                          onChangeText={(v) =>
                             handleItemChange(item.id, 'detail', v)
                           }
                         />
@@ -657,7 +785,7 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
                         placeholderTextColor={Colors.textMuted}
                         keyboardType="numeric"
                         value={item.qty}
-                        onChangeText={v => handleItemChange(item.id, 'qty', v)}
+                        onChangeText={(v) => handleItemChange(item.id, 'qty', v)}
                       />
                     </View>
                     <View style={{ flex: 1.1, paddingRight: 4 }}>
@@ -667,7 +795,7 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
                         placeholderTextColor={Colors.textMuted}
                         keyboardType="numeric"
                         value={item.rate}
-                        onChangeText={v => handleItemChange(item.id, 'rate', v)}
+                        onChangeText={(v) => handleItemChange(item.id, 'rate', v)}
                       />
                     </View>
                     <View style={{ flex: 1.1, justifyContent: 'center' }}>
@@ -699,8 +827,8 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
               <Text style={styles.addItemBelowButtonText}>+ Add Item</Text>
             </TouchableOpacity>
 
-            {/* SECTION 5: SPECIAL NOTES / COMMENTS TEXT AREA (BELOW TABLE) */}
-            <View style={styles.cardSection}>
+            {/* SPECIAL NOTES / COMMENTS TEXT AREA (BELOW TABLE) */}
+            <View style={styles.notesContainer}>
               <View style={styles.sectionHeaderRow}>
                 <View style={styles.sectionIconCircle}>
                   <FileTextIcon size={16} color={Colors.primary} />
@@ -797,7 +925,9 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
               ) : (
                 <>
                   <SaveIcon size={18} color="#FFFFFF" />
-                  <Text style={styles.saveButtonText}>Save Event</Text>
+                  <Text style={styles.saveButtonText}>
+                    {isEditing ? 'Update Event' : 'Save Event'}
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -819,7 +949,7 @@ export const NewBookingScreen: React.FC<NewBookingScreenProps> = ({
         <CustomDropdownModal
           visible={isSalesmanModalOpen}
           title="Select Salesman"
-          options={salesmen.map(s => ({
+          options={salesmen.map((s) => ({
             label: s.salesman_name,
             value: s.salesman_name,
           }))}
@@ -896,7 +1026,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Colors.border,
     borderRadius: Spacing.borderRadius.md,
-    padding: 6,
+    padding: 10,
   },
   radioCardActive: {
     borderColor: Colors.primary,
@@ -929,11 +1059,6 @@ const styles = StyleSheet.create({
   radioLabelTextActive: {
     color: Colors.primary,
     fontWeight: Typography.fontWeight.bold,
-  },
-  radioSubLabelText: {
-    fontSize: 10,
-    color: Colors.textMuted,
-    marginTop: 1,
   },
   twoColumnRow: {
     flexDirection: 'row',
@@ -1062,12 +1187,26 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: Spacing.lg,
     borderRadius: Spacing.borderRadius.sm,
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   addItemBelowButtonText: {
     fontSize: Typography.fontSize.sm,
     fontWeight: Typography.fontWeight.bold,
     color: '#FFFFFF',
+  },
+  notesContainer: {
+    marginBottom: Spacing.md,
+  },
+  textAreaInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Spacing.borderRadius.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    fontSize: Typography.fontSize.sm + 1,
+    color: Colors.textPrimary,
+    minHeight: 85,
   },
   totalsSummaryCard: {
     backgroundColor: Colors.background,
@@ -1119,17 +1258,6 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.base,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.primary,
-  },
-  textAreaInput: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Spacing.borderRadius.sm,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    fontSize: Typography.fontSize.sm + 1,
-    color: Colors.textPrimary,
-    minHeight: 85,
   },
   actionButtonsRow: {
     flexDirection: 'row',

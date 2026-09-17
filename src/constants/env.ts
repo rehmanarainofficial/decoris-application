@@ -5,5 +5,7 @@ export const ENV = {
     STOCK_MASTER: 'stock_master.php',
     SALESMAN: 'salesman.php',
     POST_EVENT_QUOTATION: 'post_event_quotation.php',
+    GET_EVENT_QUOTATION_HEADER: 'get_event_quotation_header.php',
+    VIEW_DATA: 'view_data.php',
   },
 };

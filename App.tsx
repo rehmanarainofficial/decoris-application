@@ -2,8 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Animated, StyleSheet } from 'react-native';
 import { Provider } from 'react-redux';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeStorage } from './src/utils/storage';
 import { store } from './src/store';
-import { useAppSelector } from './src/hooks';
+import { useAppDispatch, useAppSelector } from './src/hooks';
+import { loginSuccess } from './src/store/slices/userSlice';
 import {
   SplashScreen,
   DashboardScreen,
@@ -15,6 +17,8 @@ import {
   InventoryMovementScreen,
   EventCostingScreen,
 } from './src/screens';
+
+import { EventQuotationHeaderItem } from './src/api/bookingApi';
 
 interface AnimatedScreenWrapperProps {
   children: React.ReactNode;
@@ -62,10 +66,31 @@ const AnimatedScreenWrapper: React.FC<AnimatedScreenWrapperProps> = ({
 };
 
 function MainAppNavigator(): React.JSX.Element {
+  const dispatch = useAppDispatch();
   const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated);
   const [isSplashActive, setIsSplashActive] = useState<boolean>(true);
   const [currentScreen, setCurrentScreen] = useState<string>('DASHBOARD');
+  const [calendarFilter, setCalendarFilter] = useState<'ALL' | '1' | '2'>('ALL');
+  const [editingEventData, setEditingEventData] = useState<EventQuotationHeaderItem | null>(null);
   const [savedEventData, setSavedEventData] = useState<any>(null);
+
+  // Restore saved login session on app launch safely
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const savedUserProfile = await SafeStorage.getItem('@auth_user_profile');
+        if (savedUserProfile) {
+          const parsedUser = JSON.parse(savedUserProfile);
+          if (parsedUser) {
+            dispatch(loginSuccess(parsedUser));
+          }
+        }
+      } catch (err) {
+        console.log('Error restoring auth session:', err);
+      }
+    };
+    restoreSession();
+  }, [dispatch]);
 
   if (isSplashActive) {
     return <SplashScreen onFinish={() => setIsSplashActive(false)} />;
@@ -73,14 +98,16 @@ function MainAppNavigator(): React.JSX.Element {
 
   const handleNavigate = (screenTitle: string) => {
     if (screenTitle === 'Plus Booking' || screenTitle === 'New Booking') {
+      setEditingEventData(null);
       setCurrentScreen('NEW_BOOKING');
-    } else if (
-      screenTitle === 'Event Calendar' ||
-      screenTitle === 'Confirmed Orders' ||
-      screenTitle === 'Tentative Orders' ||
-      screenTitle === 'Confirmed' ||
-      screenTitle === 'Tentative'
-    ) {
+    } else if (screenTitle === 'Tentative' || screenTitle === 'Tentative Orders') {
+      setCalendarFilter('1');
+      setCurrentScreen('EVENT_CALENDAR');
+    } else if (screenTitle === 'Confirmed' || screenTitle === 'Confirmed Orders') {
+      setCalendarFilter('2');
+      setCurrentScreen('EVENT_CALENDAR');
+    } else if (screenTitle === 'Event Calendar') {
+      setCalendarFilter('ALL');
       setCurrentScreen('EVENT_CALENDAR');
     } else if (
       screenTitle === 'Daily Expenses' ||
@@ -101,6 +128,7 @@ function MainAppNavigator(): React.JSX.Element {
 
   const handleSaveSuccess = (eventData: any) => {
     setSavedEventData(eventData);
+    setEditingEventData(null);
     setCurrentScreen('EVENT_CALENDAR');
   };
 
@@ -117,8 +145,15 @@ function MainAppNavigator(): React.JSX.Element {
   if (currentScreen === 'NEW_BOOKING') {
     activeView = (
       <NewBookingScreen
-        onBack={() => setCurrentScreen('DASHBOARD')}
-        onHome={() => setCurrentScreen('DASHBOARD')}
+        editEventData={editingEventData}
+        onBack={() => {
+          setEditingEventData(null);
+          setCurrentScreen('DASHBOARD');
+        }}
+        onHome={() => {
+          setEditingEventData(null);
+          setCurrentScreen('DASHBOARD');
+        }}
         onSaveSuccess={handleSaveSuccess}
       />
     );
@@ -126,8 +161,13 @@ function MainAppNavigator(): React.JSX.Element {
     activeView = (
       <EventCalendarScreen
         eventData={savedEventData}
+        filterStatus={calendarFilter}
         onBack={() => setCurrentScreen('DASHBOARD')}
         onHome={() => setCurrentScreen('DASHBOARD')}
+        onEditEvent={(event) => {
+          setEditingEventData(event);
+          setCurrentScreen('NEW_BOOKING');
+        }}
       />
     );
   } else if (currentScreen === 'DAILY_EXPENSE') {
