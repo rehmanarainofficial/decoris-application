@@ -12,7 +12,7 @@ import {
   Modal,
   Pressable,
 } from 'react-native';
-import { ScreenHeader } from '../components/common/ScreenHeader';
+import { ScreenHeader } from '../../components/common/ScreenHeader';
 import {
   CalendarIcon,
   LocationIcon,
@@ -24,8 +24,8 @@ import {
   PrinterIcon,
   EditIcon,
   WalletIcon,
-} from '../components/common/Icons';
-import { Colors, Typography, Spacing } from '../constants';
+} from '../../components/common/Icons';
+import { Colors, Typography, Spacing } from '../../constants';
 
 interface ShortageItem {
   id: string;

@@ -1,0 +1,1 @@
+export { SalesPaymentsScreen } from './SalesPaymentsScreen';

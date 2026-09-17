@@ -4,12 +4,17 @@ import { Provider } from 'react-redux';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { store } from './src/store';
 import { useAppSelector } from './src/hooks';
-import { SplashScreen } from './src/screens/SplashScreen';
-import { DashboardScreen } from './src/screens/DashboardScreen';
-import { LoginScreen } from './src/screens/LoginScreen';
-import { NewBookingScreen } from './src/screens/NewBookingScreen';
-import { EventCalendarScreen } from './src/screens/EventCalendarScreen';
-import { DailyExpenseScreen } from './src/screens/DailyExpenseScreen';
+import {
+  SplashScreen,
+  DashboardScreen,
+  LoginScreen,
+  NewBookingScreen,
+  EventCalendarScreen,
+  DailyExpenseScreen,
+  SalesPaymentsScreen,
+  InventoryMovementScreen,
+  EventCostingScreen,
+} from './src/screens';
 
 interface AnimatedScreenWrapperProps {
   children: React.ReactNode;
@@ -72,16 +77,23 @@ function MainAppNavigator(): React.JSX.Element {
     } else if (
       screenTitle === 'Event Calendar' ||
       screenTitle === 'Confirmed Orders' ||
-      screenTitle === 'Tentative Orders'
+      screenTitle === 'Tentative Orders' ||
+      screenTitle === 'Confirmed' ||
+      screenTitle === 'Tentative'
     ) {
       setCurrentScreen('EVENT_CALENDAR');
     } else if (
       screenTitle === 'Daily Expenses' ||
       screenTitle === 'Daily Expense' ||
-      screenTitle === 'Daily Cash Transaction' ||
-      screenTitle === 'Sales & Payments'
+      screenTitle === 'Daily Cash Transaction'
     ) {
       setCurrentScreen('DAILY_EXPENSE');
+    } else if (screenTitle === 'Sales & Payments') {
+      setCurrentScreen('SALES_PAYMENTS');
+    } else if (screenTitle === 'Inventory Movement') {
+      setCurrentScreen('INVENTORY_MOVEMENT');
+    } else if (screenTitle === 'Event Costing') {
+      setCurrentScreen('EVENT_COSTING');
     } else {
       setCurrentScreen('DASHBOARD');
     }
@@ -121,6 +133,27 @@ function MainAppNavigator(): React.JSX.Element {
   } else if (currentScreen === 'DAILY_EXPENSE') {
     activeView = (
       <DailyExpenseScreen
+        onBack={() => setCurrentScreen('DASHBOARD')}
+        onHome={() => setCurrentScreen('DASHBOARD')}
+      />
+    );
+  } else if (currentScreen === 'SALES_PAYMENTS') {
+    activeView = (
+      <SalesPaymentsScreen
+        onBack={() => setCurrentScreen('DASHBOARD')}
+        onHome={() => setCurrentScreen('DASHBOARD')}
+      />
+    );
+  } else if (currentScreen === 'INVENTORY_MOVEMENT') {
+    activeView = (
+      <InventoryMovementScreen
+        onBack={() => setCurrentScreen('DASHBOARD')}
+        onHome={() => setCurrentScreen('DASHBOARD')}
+      />
+    );
+  } else if (currentScreen === 'EVENT_COSTING') {
+    activeView = (
+      <EventCostingScreen
         onBack={() => setCurrentScreen('DASHBOARD')}
         onHome={() => setCurrentScreen('DASHBOARD')}
       />

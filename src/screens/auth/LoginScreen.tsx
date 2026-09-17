@@ -21,14 +21,14 @@ import {
   EyeOffOutlineIcon,
   SquareIcon,
   CheckSquareIcon,
-} from '../components/common/Icons';
-import { BackstageLogo } from '../components/common/BackstageLogo';
-import { CustomToast } from '../components/common/CustomToast';
-import { Colors, Typography, Spacing } from '../constants';
-import { useAppDispatch } from '../hooks';
-import { loginSuccess } from '../store/slices/userSlice';
-import { useLoginMutation, ApiUserRecord } from '../api/authApi';
-import { md5 } from '../utils/md5';
+} from '../../components/common/Icons';
+import { BackstageLogo } from '../../components/common/BackstageLogo';
+import { CustomToast } from '../../components/common/CustomToast';
+import { Colors, Typography, Spacing } from '../../constants';
+import { useAppDispatch } from '../../hooks';
+import { loginSuccess } from '../../store/slices/userSlice';
+import { useLoginMutation, ApiUserRecord } from '../../api/authApi';
+import { md5 } from '../../utils/md5';
 
 export const LoginScreen: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -92,8 +92,11 @@ export const LoginScreen: React.FC = () => {
           dispatch(
             loginSuccess({
               id: foundUser.id,
+              user_id: foundUser.user_id,
               name: foundUser.real_name || foundUser.user_id,
               role: 'Event Manager',
+              role_id: foundUser.role_id,
+              saleman_id: foundUser.saleman_id,
               unreadNotifications: 1,
             })
           );
@@ -227,7 +230,7 @@ export const LoginScreen: React.FC = () => {
 
           <View style={styles.bottomArtworkContainer}>
             <Image
-              source={require('../assets/images/login_banquet.jpg')}
+              source={require('../../assets/images/login_banquet.jpg')}
               style={styles.banquetArtwork}
               resizeMode="cover"
             />
@@ -265,7 +268,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: Spacing.xl,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 16 : Spacing.xl,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 70 : Spacing.xl,
     paddingBottom: Spacing.xl,
     alignItems: 'center',
   },

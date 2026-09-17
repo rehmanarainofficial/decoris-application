@@ -10,17 +10,17 @@ import {
   Alert,
   Text,
 } from 'react-native';
-import { Header } from '../components/common';
+import { Header } from '../../components/common';
 import {
   WelcomeBanner,
   QuickActionsGrid,
   TodayOverview,
-} from '../components/dashboard';
-import { useGetDashboardDataQuery } from '../api/dashboardApi';
-import { baseApi } from '../api/baseApi';
-import { Colors, Typography, Spacing } from '../constants';
-import { useAppDispatch } from '../hooks';
-import { logout } from '../store/slices/userSlice';
+} from '../../components/dashboard';
+import { useGetDashboardDataQuery } from '../../api/dashboardApi';
+import { baseApi } from '../../api/baseApi';
+import { Colors, Typography, Spacing } from '../../constants';
+import { useAppDispatch } from '../../hooks';
+import { logout } from '../../store/slices/userSlice';
 
 interface DashboardScreenProps {
   onNavigate?: (screenName: string) => void;

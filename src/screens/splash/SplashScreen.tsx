@@ -1,16 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Animated,
   StatusBar,
-  Platform,
   ActivityIndicator,
-  Image,
 } from 'react-native';
-import { BackstageLogo } from '../components/common/BackstageLogo';
-import { Colors, Typography, Spacing } from '../constants';
+import { BackstageLogo } from '../../components/common/BackstageLogo';
 
 interface SplashScreenProps {
   onFinish: () => void;
@@ -75,45 +71,6 @@ const styles = StyleSheet.create({
   },
   contentWrapper: {
     alignItems: 'center',
-  },
-  iconCircleWrapper: {
-    width: 100,
-    height: 100,
-    borderRadius: 24,
-    overflow: 'hidden',
-    marginBottom: Spacing.md,
-    borderWidth: 2,
-    borderColor: Colors.accentGold,
-    shadowColor: Colors.accentGold,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  iconImage: {
-    width: '100%',
-    height: '100%',
-  },
-  brandTitle: {
-    fontSize: Typography.fontSize.xxxl + 12,
-    fontWeight: Typography.fontWeight.bold,
-    color: Colors.accentGold,
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-    letterSpacing: 1,
-  },
-  flourishWrapper: {
-    marginVertical: Spacing.xs,
-  },
-  taglineText: {
-    fontSize: Typography.fontSize.xs + 2,
-    fontWeight: Typography.fontWeight.medium,
-    color: '#E8D5C4',
-    letterSpacing: 0.8,
-    marginTop: 4,
-  },
-  taglineDivider: {
-    color: Colors.accentGold,
-    fontWeight: Typography.fontWeight.bold,
   },
   loaderContainer: {
     position: 'absolute',

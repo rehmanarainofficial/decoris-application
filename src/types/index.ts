@@ -4,8 +4,11 @@ export type TimeFilter = 'This Month' | 'Today' | 'This Week' | 'This Year';
 
 export interface UserProfile {
   id: string;
+  user_id?: string;
   name: string;
   role: string;
+  role_id?: string;
+  saleman_id?: string | null;
   unreadNotifications: number;
 }
 

@@ -1,0 +1,1 @@
+export { InventoryMovementScreen } from './InventoryMovementScreen';

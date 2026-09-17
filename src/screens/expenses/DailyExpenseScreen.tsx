@@ -10,7 +10,7 @@ import {
   Modal,
   StatusBar,
 } from 'react-native';
-import { Colors, Typography, Spacing } from '../constants';
+import { Colors, Typography, Spacing } from '../../constants';
 import {
   ScreenHeader,
   CalculatorIcon,
@@ -20,7 +20,7 @@ import {
   SearchIcon,
   WalletIcon,
   CustomToast,
-} from '../components/common';
+} from '../../components/common';
 
 interface TransactionItem {
   id: string;
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardHeaderBanner: {
-    backgroundColor: Colors.primary, // Deep burgundy #5B141C
+    backgroundColor: Colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   addRowButton: {
-    backgroundColor: '#1e7e34', // Green button matching user screenshot
+    backgroundColor: '#1e7e34',
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 6,
@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     fontSize: Typography.fontSize.xs,
     fontWeight: 'bold',
-    color: '#1a365d', // Deep blue bold text for amount matching screenshot
+    color: '#1a365d',
   },
   actionCellContainer: {
     flexDirection: 'row',
