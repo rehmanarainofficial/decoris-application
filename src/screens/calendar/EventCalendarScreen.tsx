@@ -20,20 +20,19 @@ import {
   UserOutlineIcon,
   PhoneIcon,
   FileTextIcon,
-  RefreshIcon,
-  TrashIcon,
-  PrinterIcon,
   EditIcon,
-  WalletIcon,
   SearchIcon,
   TentativeOrdersIcon,
   ConfirmedOrdersIcon,
+  CalculatorIcon,
 } from '../../components/common/Icons';
 import { Colors, Typography, Spacing } from '../../constants';
 import {
   useGetEventQuotationHeadersQuery,
   useGetViewDataQuery,
+  useGetFunctionCostingQuery,
   EventQuotationHeaderItem,
+  FunctionCostingItem,
 } from '../../api/bookingApi';
 
 interface ShortageItem {
@@ -59,6 +58,7 @@ interface EventCalendarScreenProps {
   onBack: () => void;
   onHome: () => void;
   onEditEvent?: (event: EventQuotationHeaderItem | any) => void;
+  onNavigateToCosting?: (event: EventQuotationHeaderItem | any) => void;
 }
 
 export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
@@ -67,29 +67,49 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
   onBack,
   onHome,
   onEditEvent,
+  onNavigateToCosting,
 }) => {
   // Live Data Query
-  const { data: headerResponse, isLoading, isFetching, refetch } = useGetEventQuotationHeadersQuery();
+  const {
+    data: headerResponse,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useGetEventQuotationHeadersQuery();
   const apiEvents: EventQuotationHeaderItem[] = headerResponse?.data || [];
 
-  // Active Tab Filter ('ALL' | '1' | '2')
   const [activeTab, setActiveTab] = useState<'ALL' | '1' | '2'>(filterStatus);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Sync activeTab if filterStatus prop changes from navigation
   React.useEffect(() => {
     setActiveTab(filterStatus);
   }, [filterStatus]);
 
-  // Selected event for detail view (shortage / costing)
-  const [selectedEvent, setSelectedEvent] = useState<any>(eventData || null);
+  // Selected event for detail view (shortage / costing) - null by default so no event is auto-opened
+  const [selectedEvent, setSelectedEvent] = useState<any>(null);
 
   const selectedOrderNo = selectedEvent?.order_no || selectedEvent?.trans_no;
-  const { data: viewDataResult, isFetching: isViewDataFetching } = useGetViewDataQuery(
-    { trans_no: selectedOrderNo, type: '32' },
-    { skip: !selectedOrderNo }
-  );
+  const { data: viewDataResult, isFetching: isViewDataFetching } =
+    useGetViewDataQuery(
+      { trans_no: selectedOrderNo, type: '32' },
+      { skip: !selectedOrderNo },
+    );
+  console.log("viewDataResult", viewDataResult);
   const detailItems = viewDataResult?.data_detail || [];
+
+  const selectedFCode =
+    selectedEvent?.function_code ||
+    selectedEvent?.f_code ||
+    selectedEvent?.order_no;
+  const { data: costingResult, isFetching: isCostingFetching } =
+    useGetFunctionCostingQuery(selectedFCode, { skip: !selectedFCode });
+  const eventCostingItems: FunctionCostingItem[] = costingResult?.data || [];
+
+  const totalEventExpense = eventCostingItems.reduce((acc, cItem) => {
+    const q = parseFloat(cItem.quantity) || 0;
+    const r = parseFloat(cItem.rates) || 0;
+    return acc + q * r;
+  }, 0);
 
   const [shortageItems, setShortageItems] = useState<ShortageItem[]>([]);
   const [costingItems, setCostingItems] = useState<CostingItem[]>([]);
@@ -106,15 +126,16 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
   const [newRate, setNewRate] = useState('');
 
   // Filter events by tab and search
-  const filteredEvents = apiEvents.filter((item) => {
+  const filteredEvents = apiEvents.filter(item => {
     const matchesTab =
-      activeTab === 'ALL' ||
-      String(item.event_status) === activeTab;
+      activeTab === 'ALL' || String(item.event_status) === activeTab;
 
     const matchesSearch =
       (item.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.venue || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.function_code || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.function_code || '')
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
       (item.contact_no || '').includes(searchQuery);
 
     return matchesTab && matchesSearch;
@@ -126,7 +147,7 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
     const qOut = parseInt(newItemQtyOut, 10) || 0;
     const calcShortage = Math.max(0, qOut - qIn).toString();
 
-    setShortageItems((prev) => [
+    setShortageItems(prev => [
       ...prev,
       {
         id: Date.now().toString(),
@@ -143,7 +164,7 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
   };
 
   const handleRemoveShortageItem = (id: string) => {
-    setShortageItems((prev) => prev.filter((item) => item.id !== id));
+    setShortageItems(prev => prev.filter(item => item.id !== id));
   };
 
   const handleAddCostingItem = () => {
@@ -151,9 +172,12 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
     const q = parseFloat(newQty) || 0;
     const r = parseFloat(newRate) || 0;
     const itemTotal = q * r;
-    const formattedTotal = itemTotal > 0 ? itemTotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '0.00';
+    const formattedTotal =
+      itemTotal > 0
+        ? itemTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })
+        : '0.00';
 
-    setCostingItems((prev) => [
+    setCostingItems(prev => [
       ...prev,
       {
         id: Date.now().toString(),
@@ -172,7 +196,7 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
   };
 
   const handleRemoveCostingItem = (id: string) => {
-    setCostingItems((prev) => prev.filter((item) => item.id !== id));
+    setCostingItems(prev => prev.filter(item => item.id !== id));
   };
 
   const handleEditClick = (event: any) => {
@@ -197,7 +221,10 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
         onHomePress={onHome}
         rightElement={
           selectedEvent && (
-            <TouchableOpacity onPress={() => handleEditClick(selectedEvent)} activeOpacity={0.7}>
+            <TouchableOpacity
+              onPress={() => handleEditClick(selectedEvent)}
+              activeOpacity={0.7}
+            >
               <EditIcon size={20} color={Colors.primary} />
             </TouchableOpacity>
           )
@@ -221,44 +248,79 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
         {/* Status Filter Tabs */}
         <View style={styles.tabBarContainer}>
           <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'ALL' && styles.tabButtonActive]}
+            style={[
+              styles.tabButton,
+              activeTab === 'ALL' && styles.tabButtonActive,
+            ]}
             onPress={() => {
               setActiveTab('ALL');
               setSelectedEvent(null);
             }}
             activeOpacity={0.8}
           >
-            <CalendarIcon size={14} color={activeTab === 'ALL' ? '#FFFFFF' : Colors.primary} />
-            <Text style={[styles.tabButtonText, activeTab === 'ALL' && styles.tabButtonTextActive]}>
+            <CalendarIcon
+              size={14}
+              color={activeTab === 'ALL' ? '#FFFFFF' : Colors.primary}
+            />
+            <Text
+              style={[
+                styles.tabButtonText,
+                activeTab === 'ALL' && styles.tabButtonTextActive,
+              ]}
+            >
               All ({apiEvents.length})
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tabButton, activeTab === '1' && styles.tabButtonActive]}
+            style={[
+              styles.tabButton,
+              activeTab === '1' && styles.tabButtonActive,
+            ]}
             onPress={() => {
               setActiveTab('1');
               setSelectedEvent(null);
             }}
             activeOpacity={0.8}
           >
-            <TentativeOrdersIcon size={14} color={activeTab === '1' ? '#FFFFFF' : Colors.primary} />
-            <Text style={[styles.tabButtonText, activeTab === '1' && styles.tabButtonTextActive]}>
-              Tentative ({apiEvents.filter((e) => String(e.event_status) === '1').length})
+            <TentativeOrdersIcon
+              size={14}
+              color={activeTab === '1' ? '#FFFFFF' : Colors.primary}
+            />
+            <Text
+              style={[
+                styles.tabButtonText,
+                activeTab === '1' && styles.tabButtonTextActive,
+              ]}
+            >
+              Tentative (
+              {apiEvents.filter(e => String(e.event_status) === '1').length})
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tabButton, activeTab === '2' && styles.tabButtonActive]}
+            style={[
+              styles.tabButton,
+              activeTab === '2' && styles.tabButtonActive,
+            ]}
             onPress={() => {
               setActiveTab('2');
               setSelectedEvent(null);
             }}
             activeOpacity={0.8}
           >
-            <ConfirmedOrdersIcon size={14} color={activeTab === '2' ? '#FFFFFF' : Colors.primary} />
-            <Text style={[styles.tabButtonText, activeTab === '2' && styles.tabButtonTextActive]}>
-              Confirmed ({apiEvents.filter((e) => String(e.event_status) === '2').length})
+            <ConfirmedOrdersIcon
+              size={14}
+              color={activeTab === '2' ? '#FFFFFF' : Colors.primary}
+            />
+            <Text
+              style={[
+                styles.tabButtonText,
+                activeTab === '2' && styles.tabButtonTextActive,
+              ]}
+            >
+              Confirmed (
+              {apiEvents.filter(e => String(e.event_status) === '2').length})
             </Text>
           </TouchableOpacity>
         </View>
@@ -275,148 +337,6 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
           />
         </View>
 
-        {/* Detailed View for Selected Event */}
-        {selectedEvent && (
-          <View style={styles.summaryCard}>
-            <View style={styles.fCodeHeaderRow}>
-              <View style={styles.fCodeIconBox}>
-                <CalendarIcon size={18} color="#FFFFFF" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Text style={styles.fCodeLabel}>Order #{selectedEvent.order_no || '16'}</Text>
-                  <TouchableOpacity
-                    style={styles.editOrderPill}
-                    onPress={() => handleEditClick(selectedEvent)}
-                    activeOpacity={0.8}
-                  >
-                    <EditIcon size={12} color="#FFFFFF" />
-                    <Text style={styles.editOrderPillText}>Update Order</Text>
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.fCodeValue}>{selectedEvent.function_code || selectedEvent.fCode || 'Event Code'}</Text>
-              </View>
-            </View>
-
-            <View style={styles.dividerLine} />
-
-            {/* Details Grid */}
-            <View style={styles.detailsGrid}>
-              <View style={styles.gridCell}>
-                <View style={styles.cellHeaderRow}>
-                  <UserOutlineIcon size={14} color={Colors.primary} />
-                  <Text style={styles.cellLabel}>Customer Name</Text>
-                </View>
-                <Text style={styles.cellValue}>{selectedEvent.name || selectedEvent.party_name || selectedEvent.customerName || '-'}</Text>
-              </View>
-
-              <View style={styles.gridCell}>
-                <View style={styles.cellHeaderRow}>
-                  <PhoneIcon size={14} color={Colors.primary} />
-                  <Text style={styles.cellLabel}>Contact</Text>
-                </View>
-                <Text style={styles.cellValue}>{selectedEvent.contact_no || selectedEvent.contactNo || '-'}</Text>
-              </View>
-
-              <View style={styles.gridCell}>
-                <View style={styles.cellHeaderRow}>
-                  <CalendarIcon size={14} color={Colors.primary} />
-                  <Text style={styles.cellLabel}>Date & Time</Text>
-                </View>
-                <Text style={styles.cellValue}>
-                  {selectedEvent.function_date || selectedEvent.eventDate || '-'} {selectedEvent.time || selectedEvent.f_time || selectedEvent.eventTime ? `• ${selectedEvent.time || selectedEvent.f_time || selectedEvent.eventTime}` : ''}
-                </Text>
-              </View>
-
-              <View style={styles.gridCell}>
-                <View style={styles.cellHeaderRow}>
-                  <LocationIcon size={14} color={Colors.primary} />
-                  <Text style={styles.cellLabel}>Venue</Text>
-                </View>
-                <Text style={styles.cellValue}>{selectedEvent.venue || '-'}</Text>
-              </View>
-
-              <View style={styles.gridCell}>
-                <View style={styles.cellHeaderRow}>
-                  <UserOutlineIcon size={14} color={Colors.primary} />
-                  <Text style={styles.cellLabel}>Guest Count</Text>
-                </View>
-                <Text style={styles.cellValue}>{selectedEvent.guest || selectedEvent.guestCount || '-'}</Text>
-              </View>
-
-              <View style={styles.gridCell}>
-                <View style={styles.cellHeaderRow}>
-                  <UserOutlineIcon size={14} color={Colors.primary} />
-                  <Text style={styles.cellLabel}>Salesman</Text>
-                </View>
-                <Text style={styles.cellValue}>{selectedEvent.salesman_name || selectedEvent.bookingManager || '-'}</Text>
-              </View>
-
-              <View style={[styles.gridCell, { width: '100%' }]}>
-                <View style={styles.cellHeaderRow}>
-                  <FileTextIcon size={14} color={Colors.primary} />
-                  <Text style={styles.cellLabel}>Special Notes</Text>
-                </View>
-                <Text style={styles.cellValue}>{selectedEvent.comments || selectedEvent.specialNotes || '-'}</Text>
-              </View>
-            </View>
-
-            {/* Items Breakdown Table from view_data.php */}
-            <View style={{ marginTop: Spacing.md, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.borderLight }}>
-              <View style={styles.breakdownHeaderBar}>
-                <Text style={styles.breakdownTitle}>EVENT REQUIREMENTS / ITEMS ({detailItems.length})</Text>
-              </View>
-
-              {isViewDataFetching ? (
-                <View style={{ padding: Spacing.md, alignItems: 'center' }}>
-                  <ActivityIndicator size="small" color={Colors.primary} />
-                </View>
-              ) : detailItems.length === 0 ? (
-                <Text style={{ fontSize: Typography.fontSize.xs, color: Colors.textMuted, padding: Spacing.md, textAlign: 'center' }}>
-                  No item details found for this quotation.
-                </Text>
-              ) : (
-                <View style={styles.tableContainer}>
-                  <View style={styles.tableHeaderRow}>
-                    <Text style={[styles.tableHeadCell, { flex: 2 }]}>Item Detail</Text>
-                    <Text style={[styles.tableHeadCell, { flex: 0.8, textAlign: 'center' }]}>Qty</Text>
-                    <Text style={[styles.tableHeadCell, { flex: 1, textAlign: 'right' }]}>Rate</Text>
-                    <Text style={[styles.tableHeadCell, { flex: 1.2, textAlign: 'right' }]}>Total</Text>
-                  </View>
-                  {detailItems.map((item, idx) => {
-                    const rowQty = parseFloat(item.quantity) || 0;
-                    const rowRate = parseFloat(item.unit_price) || 0;
-                    const rowTotal = rowQty * rowRate;
-                    return (
-                      <View key={item.id || idx} style={styles.tableBodyRow}>
-                        <View style={{ flex: 2 }}>
-                          <Text style={[styles.tableBodyCell, { fontWeight: 'bold' }]}>{item.description}</Text>
-                          {item.stock_id ? (
-                            <Text style={{ fontSize: 10, color: Colors.textMuted }}>ID: {item.stock_id}</Text>
-                          ) : null}
-                        </View>
-                        <Text style={[styles.tableBodyCell, { flex: 0.8, textAlign: 'center' }]}>{item.quantity}</Text>
-                        <Text style={[styles.tableBodyCell, { flex: 1, textAlign: 'right' }]}>{item.unit_price}</Text>
-                        <Text style={[styles.tableBodyCell, { flex: 1.2, textAlign: 'right', fontWeight: 'bold', color: Colors.primary }]}>
-                          {Math.round(rowTotal).toLocaleString()}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
-
-            <TouchableOpacity
-              style={styles.closeDetailButton}
-              onPress={() => setSelectedEvent(null)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.closeDetailButtonText}>▲ View All Events</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
         {/* Live Events List */}
         <View style={styles.eventsListContainer}>
           <Text style={styles.sectionHeadingText}>
@@ -426,14 +346,18 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
           {isLoading ? (
             <View style={styles.loadingBox}>
               <ActivityIndicator size="large" color={Colors.primary} />
-              <Text style={styles.loadingText}>Loading live events from server...</Text>
+              <Text style={styles.loadingText}>
+                Loading live events from server...
+              </Text>
             </View>
           ) : filteredEvents.length === 0 ? (
             <View style={styles.emptyBox}>
-              <Text style={styles.emptyText}>No events found for the selected filter.</Text>
+              <Text style={styles.emptyText}>
+                No events found for the selected filter.
+              </Text>
             </View>
           ) : (
-            filteredEvents.map((item) => {
+            filteredEvents.map(item => {
               const isConfirmed = String(item.event_status) === '2';
               const isSelected = selectedEvent?.order_no === item.order_no;
 
@@ -443,7 +367,11 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
                   style={[
                     styles.eventCard,
                     isSelected && styles.eventCardSelected,
-                    { borderLeftColor: isConfirmed ? '#28a745' : Colors.accentGold },
+                    {
+                      borderLeftColor: isConfirmed
+                        ? '#28a745'
+                        : Colors.accentGold,
+                    },
                   ]}
                 >
                   <View style={styles.cardTopRow}>
@@ -455,16 +383,21 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
                     <View
                       style={[
                         styles.statusBadge,
-                        isConfirmed ? styles.statusBadgeConfirmed : styles.statusBadgeTentative,
+                        isConfirmed
+                          ? styles.statusBadgeConfirmed
+                          : styles.statusBadgeTentative,
                       ]}
                     >
                       <Text
                         style={[
                           styles.statusBadgeText,
-                          isConfirmed ? styles.statusTextConfirmed : styles.statusTextTentative,
+                          isConfirmed
+                            ? styles.statusTextConfirmed
+                            : styles.statusTextTentative,
                         ]}
                       >
-                        {item.event_status_name || (isConfirmed ? 'Confirmed' : 'Tentative')}
+                        {item.event_status_name ||
+                          (isConfirmed ? 'Confirmed' : 'Tentative')}
                       </Text>
                     </View>
                   </View>
@@ -473,7 +406,9 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
                     <Text style={styles.cardCustomerName}>{item.name}</Text>
                     <View style={styles.infoLine}>
                       <PhoneIcon size={12} color={Colors.textSecondary} />
-                      <Text style={styles.infoLineText}>{item.contact_no || 'No contact'}</Text>
+                      <Text style={styles.infoLineText}>
+                        {item.contact_no || 'No contact'}
+                      </Text>
                     </View>
                     <View style={styles.infoLine}>
                       <CalendarIcon size={12} color={Colors.textSecondary} />
@@ -483,14 +418,18 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
                     </View>
                     <View style={styles.infoLine}>
                       <LocationIcon size={12} color={Colors.textSecondary} />
-                      <Text style={styles.infoLineText}>{item.venue || 'No venue specified'}</Text>
+                      <Text style={styles.infoLineText}>
+                        {item.venue || 'No venue specified'}
+                      </Text>
                     </View>
                   </View>
 
                   <View style={styles.cardFinancialRow}>
                     <View>
                       <Text style={styles.financeLabel}>Total</Text>
-                      <Text style={styles.financeValue}>Rs. {Number(item.total || 0).toLocaleString()}</Text>
+                      <Text style={styles.financeValue}>
+                        Rs. {Number(item.total || 0).toLocaleString()}
+                      </Text>
                     </View>
                     <View>
                       <Text style={styles.financeLabel}>Advance</Text>
@@ -500,17 +439,330 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
                     </View>
                     <View>
                       <Text style={styles.financeLabel}>Discount</Text>
-                      <Text style={styles.financeValue}>Rs. {Number(item.discount1 || 0).toLocaleString()}</Text>
+                      <Text style={styles.financeValue}>
+                        Rs. {Number(item.discount1 || 0).toLocaleString()}
+                      </Text>
                     </View>
                   </View>
 
+                  {/* Expanded Breakdown Section when View Breakdown is clicked */}
+                  {isSelected && (
+                    <View
+                      style={{
+                        marginTop: Spacing.md,
+                        paddingTop: Spacing.sm,
+                        borderTopWidth: 1,
+                        borderTopColor: Colors.borderLight,
+                      }}
+                    >
+                      {/* Additional Details Grid */}
+                      <View style={styles.detailsGrid}>
+                        <View style={styles.gridCell}>
+                          <View style={styles.cellHeaderRow}>
+                            <UserOutlineIcon size={14} color={Colors.primary} />
+                            <Text style={styles.cellLabel}>Guest Count</Text>
+                          </View>
+                          <Text style={styles.cellValue}>{item.guest || '-'}</Text>
+                        </View>
+
+                        <View style={styles.gridCell}>
+                          <View style={styles.cellHeaderRow}>
+                            <UserOutlineIcon size={14} color={Colors.primary} />
+                            <Text style={styles.cellLabel}>Salesman</Text>
+                          </View>
+                          <Text style={styles.cellValue}>
+                            {item.salesman_name || '-'}
+                          </Text>
+                        </View>
+
+                        {item.comments ? (
+                          <View style={[styles.gridCell, { width: '100%' }]}>
+                            <View style={styles.cellHeaderRow}>
+                              <FileTextIcon size={14} color={Colors.primary} />
+                              <Text style={styles.cellLabel}>Special Notes</Text>
+                            </View>
+                            <Text style={styles.cellValue}>{item.comments}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+
+                      {/* Items Breakdown Table from view_data.php */}
+                      <View style={{ marginTop: Spacing.sm }}>
+                        <View style={styles.breakdownHeaderBar}>
+                          <Text style={styles.breakdownTitle}>
+                            EVENT REQUIREMENTS / ITEMS ({detailItems.length})
+                          </Text>
+                        </View>
+
+                        {isViewDataFetching ? (
+                          <View style={{ padding: Spacing.md, alignItems: 'center' }}>
+                            <ActivityIndicator size="small" color={Colors.primary} />
+                          </View>
+                        ) : detailItems.length === 0 ? (
+                          <Text
+                            style={{
+                              fontSize: Typography.fontSize.xs,
+                              color: Colors.textMuted,
+                              padding: Spacing.md,
+                              textAlign: 'center',
+                            }}
+                          >
+                            No item details found for this quotation.
+                          </Text>
+                        ) : (
+                          <View style={styles.tableContainer}>
+                            <View style={styles.tableHeaderRow}>
+                              <Text style={[styles.tableHeadCell, { flex: 2 }]}>
+                                Item Detail
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.tableHeadCell,
+                                  { flex: 0.8, textAlign: 'center' },
+                                ]}
+                              >
+                                Qty
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.tableHeadCell,
+                                  { flex: 1, textAlign: 'right' },
+                                ]}
+                              >
+                                Rate
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.tableHeadCell,
+                                  { flex: 1.2, textAlign: 'right' },
+                                ]}
+                              >
+                                Total
+                              </Text>
+                            </View>
+                            {detailItems.map((dItem, idx) => {
+                              const rowQty = parseFloat(dItem.quantity) || 0;
+                              const rowRate = parseFloat(dItem.unit_price) || 0;
+                              const rowTotal = rowQty * rowRate;
+                              return (
+                                <View
+                                  key={dItem.id || idx}
+                                  style={styles.tableBodyRow}
+                                >
+                                  <View style={{ flex: 2 }}>
+                                    <Text
+                                      style={[
+                                        styles.tableBodyCell,
+                                        { fontWeight: 'bold' },
+                                      ]}
+                                    >
+                                      {dItem.description}
+                                    </Text>
+                                    {dItem.stock_id ? (
+                                      <Text
+                                        style={{
+                                          fontSize: 10,
+                                          color: Colors.textMuted,
+                                        }}
+                                      >
+                                        ID: {dItem.stock_id}
+                                      </Text>
+                                    ) : null}
+                                  </View>
+                                  <Text
+                                    style={[
+                                      styles.tableBodyCell,
+                                      { flex: 0.8, textAlign: 'center' },
+                                    ]}
+                                  >
+                                    {dItem.quantity}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.tableBodyCell,
+                                      { flex: 1, textAlign: 'right' },
+                                    ]}
+                                  >
+                                    {dItem.unit_price}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.tableBodyCell,
+                                      {
+                                        flex: 1.2,
+                                        textAlign: 'right',
+                                        fontWeight: 'bold',
+                                        color: Colors.primary,
+                                      },
+                                    ]}
+                                  >
+                                    {Math.round(rowTotal).toLocaleString()}
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                          </View>
+                        )}
+
+                        {/* Costing / Vendor Expense Section */}
+                        <View style={[styles.breakdownHeaderBar, { marginTop: Spacing.md }]}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <CalculatorIcon size={14} color={Colors.primary} />
+                            <Text style={styles.breakdownHeaderTitle}>
+                              COSTING & VENDOR EXPENSES ({eventCostingItems.length})
+                            </Text>
+                          </View>
+                          <TouchableOpacity
+                            style={styles.addCostingLink}
+                            onPress={() => onNavigateToCosting?.(item)}
+                          >
+                            <Text style={styles.addCostingLinkText}>+ Manage Cost</Text>
+                          </TouchableOpacity>
+                        </View>
+
+                        {isCostingFetching ? (
+                          <View style={styles.detailLoadingContainer}>
+                            <ActivityIndicator size="small" color={Colors.primary} />
+                            <Text style={styles.detailLoadingText}>
+                              Loading costing records...
+                            </Text>
+                          </View>
+                        ) : eventCostingItems.length === 0 ? (
+                          <View style={styles.detailEmptyContainer}>
+                            <Text style={styles.detailEmptyText}>
+                              No costing records found for this event.
+                            </Text>
+                          </View>
+                        ) : (
+                          <View style={styles.tableCard}>
+                            <View style={[styles.tableHeaderRow, { backgroundColor: '#F0ECE1' }]}>
+                              <Text style={[styles.tableHeadCell, { flex: 1.5 }]}>
+                                Vendor
+                              </Text>
+                              <Text style={[styles.tableHeadCell, { flex: 2 }]}>
+                                Description
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.tableHeadCell,
+                                  { flex: 0.8, textAlign: 'center' },
+                                ]}
+                              >
+                                Qty
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.tableHeadCell,
+                                  { flex: 1, textAlign: 'right' },
+                                ]}
+                              >
+                                Rate
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.tableHeadCell,
+                                  { flex: 1.2, textAlign: 'right' },
+                                ]}
+                              >
+                                Total
+                              </Text>
+                            </View>
+                            {eventCostingItems.map((cItem, cIdx) => {
+                              const cQty = parseFloat(cItem.quantity) || 0;
+                              const cRate = parseFloat(cItem.rates) || 0;
+                              const cTotal = cQty * cRate;
+                              return (
+                                <View
+                                  key={cItem.id || cIdx}
+                                  style={styles.tableBodyRow}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.tableBodyCell,
+                                      { flex: 1.5, fontWeight: 'bold' },
+                                    ]}
+                                    numberOfLines={2}
+                                  >
+                                    {cItem.supplier || `Supplier #${cItem.supplier_id}`}
+                                  </Text>
+                                  <Text
+                                    style={[styles.tableBodyCell, { flex: 2 }]}
+                                    numberOfLines={2}
+                                  >
+                                    {cItem.description || '-'}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.tableBodyCell,
+                                      { flex: 0.8, textAlign: 'center' },
+                                    ]}
+                                  >
+                                    {cItem.quantity}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.tableBodyCell,
+                                      { flex: 1, textAlign: 'right' },
+                                    ]}
+                                  >
+                                    {cItem.rates}
+                                  </Text>
+                                  <Text
+                                    style={[
+                                      styles.tableBodyCell,
+                                      {
+                                        flex: 1.2,
+                                        textAlign: 'right',
+                                        fontWeight: 'bold',
+                                        color: '#1a365d',
+                                      },
+                                    ]}
+                                  >
+                                    {Math.round(cTotal).toLocaleString()}
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                            <View style={styles.costingSummaryFooter}>
+                              <Text style={styles.costingSummaryLabel}>
+                                Total Event Expense:
+                              </Text>
+                              <Text style={styles.costingSummaryValue}>
+                                Rs. {Math.round(totalEventExpense).toLocaleString()}
+                              </Text>
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  )}
+
                   <View style={styles.cardActionsRow}>
                     <TouchableOpacity
-                      style={styles.viewDetailBtn}
-                      onPress={() => setSelectedEvent(item)}
+                      style={[
+                        styles.viewDetailBtn,
+                        isSelected && { backgroundColor: Colors.primary },
+                      ]}
+                      onPress={() => setSelectedEvent(isSelected ? null : item)}
                       activeOpacity={0.8}
                     >
-                      <Text style={styles.viewDetailBtnText}>View Breakdown</Text>
+                      <Text
+                        style={[
+                          styles.viewDetailBtnText,
+                          isSelected && { color: '#FFFFFF' },
+                        ]}
+                      >
+                        {isSelected ? 'Hide Breakdown' : 'View Breakdown'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.costingCardBtn}
+                      onPress={() => onNavigateToCosting?.(item)}
+                      activeOpacity={0.8}
+                    >
+                      <CalculatorIcon size={14} color="#FFFFFF" />
+                      <Text style={styles.costingCardBtnText}>Event Cost</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -527,111 +779,6 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
             })
           )}
         </View>
-
-        {/* Return / Shortage Section (Shown when an event is selected) */}
-        {selectedEvent && (
-          <>
-            <View style={styles.shortageCard}>
-              <View style={styles.shortageHeaderBar}>
-                <View style={styles.shortageTitleRow}>
-                  <RefreshIcon size={16} color="#FFFFFF" />
-                  <Text style={styles.shortageTitle}>Return / Shortage</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.addShortageButton}
-                  onPress={() => setIsAddModalOpen(true)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.addShortageButtonText}>+</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Shortage Table */}
-              <View style={styles.tableHeaderRow}>
-                <Text style={[styles.tableHeadCell, { flex: 2 }]}>Item</Text>
-                <Text style={[styles.tableHeadCell, { flex: 1, textAlign: 'center' }]}>Qty In</Text>
-                <Text style={[styles.tableHeadCell, { flex: 1, textAlign: 'center' }]}>Qty Out</Text>
-                <Text style={[styles.tableHeadCell, { flex: 1, textAlign: 'center' }]}>Shortage</Text>
-                <Text style={[styles.tableHeadCell, { flex: 0.8, textAlign: 'center' }]}>Action</Text>
-              </View>
-
-              {shortageItems.map((item) => {
-                const hasShortage = parseInt(item.shortage, 10) > 0;
-                return (
-                  <View key={item.id} style={styles.tableBodyRow}>
-                    <Text style={[styles.tableBodyCell, { flex: 2 }]}>{item.item}</Text>
-                    <Text style={[styles.tableBodyCell, { flex: 1, textAlign: 'center' }]}>{item.qtyIn}</Text>
-                    <Text style={[styles.tableBodyCell, { flex: 1, textAlign: 'center' }]}>{item.qtyOut}</Text>
-                    <Text
-                      style={[
-                        styles.tableBodyCell,
-                        { flex: 1, textAlign: 'center' },
-                        hasShortage && styles.shortageHighlightText,
-                      ]}
-                    >
-                      {item.shortage}
-                    </Text>
-                    <TouchableOpacity
-                      style={{ flex: 0.8, alignItems: 'center' }}
-                      onPress={() => handleRemoveShortageItem(item.id)}
-                    >
-                      <TrashIcon size={16} color={Colors.accentRed} />
-                    </TouchableOpacity>
-                  </View>
-                );
-              })}
-            </View>
-
-            {/* Costing Section */}
-            <View style={styles.shortageCard}>
-              <View style={styles.shortageHeaderBar}>
-                <View style={styles.shortageTitleRow}>
-                  <WalletIcon size={18} color="#FFFFFF" />
-                  <Text style={styles.shortageTitle}>Costing</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.addShortageButton}
-                  onPress={() => setIsAddCostingModalOpen(true)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.addShortageButtonText}>+</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Costing Table */}
-              <View style={styles.tableHeaderRow}>
-                <Text style={[styles.tableHeadCell, { flex: 1.8 }]}>Vendor</Text>
-                <Text style={[styles.tableHeadCell, { flex: 2 }]}>Product Description</Text>
-                <Text style={[styles.tableHeadCell, { flex: 0.8, textAlign: 'center' }]}>Qty</Text>
-                <Text style={[styles.tableHeadCell, { flex: 1, textAlign: 'center' }]}>Rate</Text>
-                <Text style={[styles.tableHeadCell, { flex: 1.2, textAlign: 'right' }]}>Total</Text>
-                <Text style={[styles.tableHeadCell, { flex: 0.8, textAlign: 'center' }]}>Action</Text>
-              </View>
-
-              {costingItems.map((item) => (
-                <View key={item.id} style={styles.tableBodyRow}>
-                  <Text style={[styles.tableBodyCell, { flex: 1.8, fontWeight: '600' }]} numberOfLines={1}>
-                    {item.vendor}
-                  </Text>
-                  <Text style={[styles.tableBodyCell, { flex: 2, color: Colors.textSecondary }]} numberOfLines={1}>
-                    {item.description || '-'}
-                  </Text>
-                  <Text style={[styles.tableBodyCell, { flex: 0.8, textAlign: 'center' }]}>{item.qty}</Text>
-                  <Text style={[styles.tableBodyCell, { flex: 1, textAlign: 'center' }]}>{item.rate}</Text>
-                  <Text style={[styles.tableBodyCell, { flex: 1.2, textAlign: 'right', fontWeight: 'bold' }]}>
-                    {item.total}
-                  </Text>
-                  <TouchableOpacity
-                    style={{ flex: 0.8, alignItems: 'center' }}
-                    onPress={() => handleRemoveCostingItem(item.id)}
-                  >
-                    <TrashIcon size={16} color={Colors.accentRed} />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          </>
-        )}
       </ScrollView>
 
       {/* Add Shortage Item Modal */}
@@ -641,8 +788,14 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
         animationType="slide"
         onRequestClose={() => setIsAddModalOpen(false)}
       >
-        <Pressable style={styles.modalBackdrop} onPress={() => setIsAddModalOpen(false)}>
-          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setIsAddModalOpen(false)}
+        >
+          <Pressable
+            style={styles.modalCard}
+            onPress={e => e.stopPropagation()}
+          >
             <Text style={styles.modalTitle}>Add Return / Shortage Item</Text>
             <TextInput
               style={styles.modalInput}
@@ -693,8 +846,14 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
         animationType="slide"
         onRequestClose={() => setIsAddCostingModalOpen(false)}
       >
-        <Pressable style={styles.modalBackdrop} onPress={() => setIsAddCostingModalOpen(false)}>
-          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setIsAddCostingModalOpen(false)}
+        >
+          <Pressable
+            style={styles.modalCard}
+            onPress={e => e.stopPropagation()}
+          >
             <Text style={styles.modalTitle}>Add Costing Item</Text>
             <TextInput
               style={styles.modalInput}
@@ -948,6 +1107,20 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontWeight: '600',
   },
+  costingCardBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#9E7D3B',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    gap: 4,
+  },
+  costingCardBtnText: {
+    fontSize: Typography.fontSize.xs,
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
   editCardBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1174,12 +1347,81 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     borderRadius: Spacing.borderRadius.sm,
     marginBottom: Spacing.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  breakdownHeaderTitle: {
+    fontSize: Typography.fontSize.xs + 1,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.primary,
+    letterSpacing: 0.5,
   },
   breakdownTitle: {
     fontSize: Typography.fontSize.xs + 1,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.primary,
     letterSpacing: 0.5,
+  },
+  addCostingLink: {
+    backgroundColor: '#FAF5EE',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#EBDCC8',
+  },
+  addCostingLinkText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: Colors.primary,
+  },
+  costingSummaryFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FAF5EE',
+    paddingVertical: 8,
+    paddingHorizontal: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: '#EBE5D8',
+  },
+  costingSummaryLabel: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: 'bold',
+    color: Colors.textPrimary,
+  },
+  costingSummaryValue: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: 'bold',
+    color: Colors.primary,
+  },
+  detailLoadingContainer: {
+    padding: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  detailLoadingText: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textMuted,
+  },
+  detailEmptyContainer: {
+    padding: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailEmptyText: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textMuted,
+    fontStyle: 'italic',
+  },
+  tableCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: Spacing.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    overflow: 'hidden',
   },
   tableContainer: {
     backgroundColor: '#FFFFFF',

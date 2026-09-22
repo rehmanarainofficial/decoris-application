@@ -125,6 +125,58 @@ export interface ViewDataRequest {
   type?: string | number;
 }
 
+export interface SupplierItem {
+  supplier_id: string;
+  name: string;
+  debtor_ref?: string;
+  address?: string;
+  ntn_id?: string;
+  cnic?: string;
+  contact_no?: string;
+  poc_name?: string;
+  poc_contact?: string;
+  poc_email?: string;
+  inactive?: string;
+}
+
+export interface GetSuppliersResponse {
+  status: string | boolean;
+  data: SupplierItem[];
+}
+
+export interface PostFunctionCostingRequest {
+  description: string;
+  unit_price: string | number;
+  date: string;
+  f_code: string | number;
+  supplier_id: string | number;
+  quantity: string | number;
+}
+
+export interface PostFunctionCostingResponse {
+  status: string | boolean;
+  message?: string;
+  data?: any;
+}
+
+export interface FunctionCostingItem {
+  id: string;
+  f_code: string;
+  description: string;
+  rates: string;
+  supplier_id: string;
+  supplier: string;
+  quantity: string;
+  order_date: string;
+}
+
+export interface GetFunctionCostingResponse {
+  status: string | boolean;
+  message?: string;
+  count?: number;
+  data: FunctionCostingItem[];
+}
+
 export const bookingApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getEventQuotationHeaders: builder.query<GetEventQuotationHeaderResponse, void>({
@@ -159,6 +211,54 @@ export const bookingApi = baseApi.injectEndpoints({
         };
       },
       providesTags: ['Orders'],
+    }),
+
+    getSuppliers: builder.query<GetSuppliersResponse, void>({
+      query: () => ({
+        url: ENV.ENDPOINTS.SUPPLIERS,
+        method: 'GET',
+      }),
+    }),
+
+    getFunctionCosting: builder.query<GetFunctionCostingResponse, string | number | { f_code: string | number }>({
+      query: (arg) => {
+        let fCode = '';
+        if (typeof arg === 'object' && arg !== null) {
+          fCode = String(arg.f_code || '');
+        } else {
+          fCode = String(arg || '');
+        }
+        const formData = new FormData();
+        formData.append('f_code', fCode);
+        console.log(`=== [GET_FUNCTION_COSTING POST FORM-DATA: f_code=${fCode}] ===`);
+        return {
+          url: ENV.ENDPOINTS.GET_FUNCTION_COSTING,
+          method: 'POST',
+          body: formData,
+        };
+      },
+      providesTags: ['Costing'],
+    }),
+
+    postFunctionCosting: builder.mutation<PostFunctionCostingResponse, PostFunctionCostingRequest>({
+      query: (bodyData) => {
+        const formData = new FormData();
+        formData.append('description', String(bodyData.description));
+        formData.append('unit_price', String(bodyData.unit_price));
+        formData.append('date', String(bodyData.date));
+        formData.append('f_code', String(bodyData.f_code));
+        formData.append('supplier_id', String(bodyData.supplier_id));
+        formData.append('quantity', String(bodyData.quantity));
+
+        console.log('=== [POST_FUNCTION_COSTING REQUEST BODY] ===', bodyData);
+
+        return {
+          url: ENV.ENDPOINTS.FUNCTION_COSTING,
+          method: 'POST',
+          body: formData,
+        };
+      },
+      invalidatesTags: ['Costing', 'Orders', 'Dashboard'],
     }),
 
     postEventQuotation: builder.mutation<PostEventQuotationResponse, PostEventQuotationRequest>({
@@ -207,5 +307,10 @@ export const {
   useGetEventQuotationHeadersQuery,
   useGetViewDataQuery,
   useLazyGetViewDataQuery,
+  useGetSuppliersQuery,
+  useGetFunctionCostingQuery,
+  useLazyGetFunctionCostingQuery,
+  usePostFunctionCostingMutation,
   usePostEventQuotationMutation,
 } = bookingApi;
+

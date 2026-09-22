@@ -64,10 +64,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.03)',
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 6 : 2,
-    paddingBottom: Spacing.xs,
+    paddingBottom: Spacing.lg,
   },
   headerRow: {
-    height: 56,
+    height: 24,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

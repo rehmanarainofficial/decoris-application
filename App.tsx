@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Animated, StyleSheet } from 'react-native';
+import { Animated, StyleSheet, BackHandler } from 'react-native';
 import { Provider } from 'react-redux';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SafeStorage } from './src/utils/storage';
@@ -29,26 +29,16 @@ const AnimatedScreenWrapper: React.FC<AnimatedScreenWrapperProps> = ({
   children,
   activeKey,
 }) => {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(20)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    fadeAnim.setValue(0);
-    slideAnim.setValue(20);
-
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [activeKey, fadeAnim, slideAnim]);
+    fadeAnim.setValue(0.7);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 150,
+      useNativeDriver: true,
+    }).start();
+  }, [activeKey, fadeAnim]);
 
   return (
     <Animated.View
@@ -56,7 +46,6 @@ const AnimatedScreenWrapper: React.FC<AnimatedScreenWrapperProps> = ({
         styles.animatedContainer,
         {
           opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
         },
       ]}
     >
@@ -72,7 +61,46 @@ function MainAppNavigator(): React.JSX.Element {
   const [currentScreen, setCurrentScreen] = useState<string>('DASHBOARD');
   const [calendarFilter, setCalendarFilter] = useState<'ALL' | '1' | '2'>('ALL');
   const [editingEventData, setEditingEventData] = useState<EventQuotationHeaderItem | null>(null);
+  const [costingEventData, setCostingEventData] = useState<EventQuotationHeaderItem | any | null>(null);
   const [savedEventData, setSavedEventData] = useState<any>(null);
+
+  // Android Hardware / Gesture Back Button Handling
+  useEffect(() => {
+    const onBackPress = () => {
+      if (!isAuthenticated || isSplashActive) {
+        return false;
+      }
+
+      if (currentScreen === 'EVENT_COSTING') {
+        if (costingEventData) {
+          setCostingEventData(null);
+          setCurrentScreen('EVENT_CALENDAR');
+        } else {
+          setCurrentScreen('DASHBOARD');
+        }
+        return true;
+      }
+
+      if (currentScreen === 'NEW_BOOKING') {
+        setEditingEventData(null);
+        setCurrentScreen(editingEventData ? 'EVENT_CALENDAR' : 'DASHBOARD');
+        return true;
+      }
+
+      if (currentScreen !== 'DASHBOARD') {
+        setEditingEventData(null);
+        setCostingEventData(null);
+        setCurrentScreen('DASHBOARD');
+        return true;
+      }
+
+      // On DASHBOARD: Allow default behavior (exit app)
+      return false;
+    };
+
+    const backSubscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backSubscription.remove();
+  }, [isAuthenticated, isSplashActive, currentScreen, costingEventData, editingEventData]);
 
   // Restore saved login session on app launch safely
   useEffect(() => {
@@ -120,6 +148,7 @@ function MainAppNavigator(): React.JSX.Element {
     } else if (screenTitle === 'Inventory Movement') {
       setCurrentScreen('INVENTORY_MOVEMENT');
     } else if (screenTitle === 'Event Costing') {
+      setCostingEventData(null);
       setCurrentScreen('EVENT_COSTING');
     } else {
       setCurrentScreen('DASHBOARD');
@@ -168,6 +197,10 @@ function MainAppNavigator(): React.JSX.Element {
           setEditingEventData(event);
           setCurrentScreen('NEW_BOOKING');
         }}
+        onNavigateToCosting={(event) => {
+          setCostingEventData(event);
+          setCurrentScreen('EVENT_COSTING');
+        }}
       />
     );
   } else if (currentScreen === 'DAILY_EXPENSE') {
@@ -194,7 +227,14 @@ function MainAppNavigator(): React.JSX.Element {
   } else if (currentScreen === 'EVENT_COSTING') {
     activeView = (
       <EventCostingScreen
-        onBack={() => setCurrentScreen('DASHBOARD')}
+        eventData={costingEventData}
+        onBack={() => {
+          if (costingEventData) {
+            setCurrentScreen('EVENT_CALENDAR');
+          } else {
+            setCurrentScreen('DASHBOARD');
+          }
+        }}
         onHome={() => setCurrentScreen('DASHBOARD')}
       />
     );

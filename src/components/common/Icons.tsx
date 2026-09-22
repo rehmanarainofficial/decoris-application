@@ -579,3 +579,15 @@ export const MoreTabIcon: React.FC<IconProps> = ({
     <Circle cx="19" cy="12" r="1.8" fill={color} />
   </Svg>
 );
+
+export const PlusIcon: React.FC<IconProps> = ({
+  size = 20,
+  color = '#FFFFFF',
+  strokeWidth = 2,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Line x1="12" y1="5" x2="12" y2="19" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    <Line x1="5" y1="12" x2="19" y2="12" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
