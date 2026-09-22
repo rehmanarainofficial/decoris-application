@@ -1,5 +1,5 @@
 export const ENV = {
-  BASE_URL: 'http://c.de2solutions.com/mobile_dash/',
+  BASE_URL: 'https://c.de2solutions.com/mobile_dash/',
   ENDPOINTS: {
     LOGIN: 'users.php',
     STOCK_MASTER: 'stock_master.php',
@@ -10,5 +10,13 @@ export const ENV = {
     SUPPLIERS: 'suppliers.php',
     FUNCTION_COSTING: 'function_costing.php',
     GET_FUNCTION_COSTING: 'get_function_costing.php',
+    LOCATIONS: 'locations.php',
+    LOCAL_PURCHASE_ACCOUNT: 'local_purchase_account.php',
+    LOCAL_PURCHASE_PAYMENT_ACCOUNT: 'local_purchase_payment_account.php',
+    POST_LOCAL_PURCHASE_RECEIPT: 'post_local_purchase_receipt.php',
+    POST_LOCAL_PURCHASE_PAYMENT: 'post_local_purchase_payment.php',
+    POST_LOCAL_PURCHASE_MATERIAL: 'post_local_purchase_material.php',
+    GET_GL_ACCOUNT: 'get_gl_account.php',
+    GL_ACCOUNT_INQUIRY: 'gl_account_inquiry.php',
   },
 };

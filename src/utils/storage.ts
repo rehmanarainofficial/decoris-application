@@ -1,6 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// In-memory fallback map if native module is not yet compiled/linked into current APK
 const memoryStorage = new Map<string, string>();
 
 export const SafeStorage = {

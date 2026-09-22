@@ -23,7 +23,7 @@ export const Spacing = {
       elevation: 2,
     },
     medium: {
-      shadowColor: '#5B141C',
+      shadowColor: '#DC2626',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.06,
       shadowRadius: 10,

@@ -16,6 +16,7 @@ import {
   SalesPaymentsScreen,
   InventoryMovementScreen,
   EventCostingScreen,
+  LedgerScreen,
 } from './src/screens';
 
 import { EventQuotationHeaderItem } from './src/api/bookingApi';
@@ -145,8 +146,12 @@ function MainAppNavigator(): React.JSX.Element {
       setCurrentScreen('DAILY_EXPENSE');
     } else if (screenTitle === 'Sales & Payments') {
       setCurrentScreen('SALES_PAYMENTS');
-    } else if (screenTitle === 'Inventory Movement') {
-      setCurrentScreen('INVENTORY_MOVEMENT');
+    } else if (
+      screenTitle === 'Ledger' ||
+      screenTitle === 'General Ledger' ||
+      screenTitle === 'Inventory Movement'
+    ) {
+      setCurrentScreen('LEDGER');
     } else if (screenTitle === 'Event Costing') {
       setCostingEventData(null);
       setCurrentScreen('EVENT_COSTING');
@@ -217,9 +222,9 @@ function MainAppNavigator(): React.JSX.Element {
         onHome={() => setCurrentScreen('DASHBOARD')}
       />
     );
-  } else if (currentScreen === 'INVENTORY_MOVEMENT') {
+  } else if (currentScreen === 'LEDGER' || currentScreen === 'INVENTORY_MOVEMENT') {
     activeView = (
-      <InventoryMovementScreen
+      <LedgerScreen
         onBack={() => setCurrentScreen('DASHBOARD')}
         onHome={() => setCurrentScreen('DASHBOARD')}
       />

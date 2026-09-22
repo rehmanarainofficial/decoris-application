@@ -1,8 +1,3 @@
-/**
- * Pure JavaScript RFC 1321 MD5 Hashing Utility
- * Verified 100% compliant with Node.js crypto.createHash('md5')
- */
-
 export function md5(string: string): string {
   function rotateLeft(lValue: number, iShiftBits: number): number {
     return (lValue << iShiftBits) | (lValue >>> (32 - iShiftBits));

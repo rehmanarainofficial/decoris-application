@@ -15,7 +15,7 @@ export const BackstageLogo: React.FC<BackstageLogoProps> = ({
 }) => {
   const isDark = variant === 'dark';
   const textColor = isDark ? '#111827' : '#FFFFFF';
-  const starRed = '#DC2626'; // Brand red
+  const starRed = isDark ? '#DC2626' : '#FFFFFF'; // Brand red on light bg, crisp white on dark/red bg
 
   // Sizing configurations
   const config = {

@@ -36,27 +36,27 @@ const MOCK_DASHBOARD_DATA: GetDashboardOverviewResponse = {
     },
     {
       id: 'action_5',
-      title: 'Sales & Payments',
-      subtitle: 'Manage sales and payments',
-      iconName: 'wallet',
-    },
-    {
-      id: 'action_6',
-      title: 'Inventory Movement',
-      subtitle: 'Manage items movement',
-      iconName: 'arrow-down-up',
-    },
-    {
-      id: 'action_7',
       title: 'Event Costing',
       subtitle: 'Manage costing details',
       iconName: 'calculator',
     },
     {
-      id: 'action_8',
+      id: 'action_6',
       title: 'Daily Expenses',
       subtitle: 'Manage daily expenses',
       iconName: 'pie-chart',
+    },
+    {
+      id: 'action_7',
+      title: 'Sales & Payments',
+      subtitle: 'Manage sales and payments',
+      iconName: 'wallet',
+    },
+    {
+      id: 'action_8',
+      title: 'Ledger',
+      subtitle: 'View GL account ledger',
+      iconName: 'arrow-down-up',
     },
   ],
   overview: {

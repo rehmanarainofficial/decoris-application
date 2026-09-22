@@ -6,29 +6,36 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Modal,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Typography, Spacing } from '../../constants';
 import {
   ScreenHeader,
-  CalculatorIcon,
-  PrinterIcon,
   TrashIcon,
-  PlusBookingIcon,
-  SearchIcon,
+  CalendarIcon,
   WalletIcon,
+  FileTextIcon,
+  CustomDropdownModal,
+  CalendarPickerModal,
   CustomToast,
+  PlusIcon,
 } from '../../components/common';
+import { useAppSelector } from '../../hooks';
+import {
+  useGetLocalPurchaseAccountsQuery,
+  useGetLocalPurchasePaymentAccountsQuery,
+  usePostLocalPurchaseReceiptMutation,
+  usePostLocalPurchasePaymentMutation,
+} from '../../api/expenseApi';
 
-interface TransactionItem {
+interface FactoryItem {
   id: string;
-  date: string;
-  debitAccount: string;
-  creditAccount: string;
-  amount: number;
-  memo: string;
+  type: string;
+  typeValue: string;
+  description: string;
+  amount: string;
 }
 
 interface DailyExpenseScreenProps {
@@ -36,368 +43,483 @@ interface DailyExpenseScreenProps {
   onHome?: () => void;
 }
 
-const INITIAL_TRANSACTIONS: TransactionItem[] = [
-  {
-    id: 'tx_1',
-    date: '27-08-2026',
-    debitAccount: 'Advances and Deposits',
-    creditAccount: 'Bank Islami',
-    amount: 500,
-    memo: 'zxasxasxasxasx',
-  },
-  {
-    id: 'tx_2',
-    date: '27-08-2026',
-    debitAccount: 'Office Maintenance',
-    creditAccount: 'Cash in Hand',
-    amount: 12500,
-    memo: 'Stage flowers & decor setup materials',
-  },
-  {
-    id: 'tx_3',
-    date: '26-08-2026',
-    debitAccount: 'Vendor Payment',
-    creditAccount: 'Meezan Bank',
-    amount: 2500,
-    memo: 'Generator diesel refilling',
-  },
-];
-
 export const DailyExpenseScreen: React.FC<DailyExpenseScreenProps> = ({
   onBack,
   onHome,
 }) => {
-  const [transactions, setTransactions] = useState<TransactionItem[]>(
-    INITIAL_TRANSACTIONS,
+  const userProfile = useAppSelector((state) => state.user.profile);
+  const userId = userProfile?.id || userProfile?.user_id || '1';
+
+  // Main Tab: 'receipt' | 'payment'
+  const [mainTab, setMainTab] = useState<'receipt' | 'payment'>('receipt');
+
+  // Common Date State
+  const [selectedDate, setSelectedDate] = useState<string>(
+    new Date().toISOString().split('T')[0]
   );
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+
+  // RTK Queries
+  const { data: accountsData, isLoading: isAccountsLoading } = useGetLocalPurchaseAccountsQuery();
+  const { data: expenseAccountsData, isLoading: isExpenseAccountsLoading } = useGetLocalPurchasePaymentAccountsQuery();
+
+  // Mutations
+  const [postReceipt, { isLoading: isReceiptPosting }] = usePostLocalPurchaseReceiptMutation();
+  const [postPayment, { isLoading: isPaymentPosting }] = usePostLocalPurchasePaymentMutation();
+
+  const isSubmitting = isReceiptPosting || isPaymentPosting;
+
+  // Dropdown options
+  const receiptAccountOptions = (accountsData?.data || []).map((acc) => ({
+    label: (acc.account_name || '').replace(/&amp;/g, '&'),
+    value: String(acc.account_code),
+  }));
+
+  const expenseAccountOptions = (expenseAccountsData?.data || []).map((acc) => ({
+    label: (acc.account_name || '').replace(/&amp;/g, '&'),
+    value: String(acc.account_code),
+  }));
+
+  // Receipt Form State
+  const [receiptFrom, setReceiptFrom] = useState<string | null>(null);
+  const [receiptAmount, setReceiptAmount] = useState<string>('');
+
+  // Payment (Factory Expenses) Form State
+  const [factoryItems, setFactoryItems] = useState<FactoryItem[]>([]);
+  const [factoryType, setFactoryType] = useState<string | null>(null);
+  const [factoryDescription, setFactoryDescription] = useState<string>('');
+  const [factoryAmount, setFactoryAmount] = useState<string>('');
+
+  // Active Dropdown Modal State
+  const [dropdownModalType, setDropdownModalType] = useState<
+    'receipt_account' | 'factory_type' | null
+  >(null);
 
   // Toast state
+  const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
-  const [toastVisible, setToastVisible] = useState(false);
 
-  // Modal Form State
-  const [newDate, setNewDate] = useState('27-08-2026');
-  const [newDebitAccount, setNewDebitAccount] = useState('Advances and Deposits');
-  const [newCreditAccount, setNewCreditAccount] = useState('Bank Islami');
-  const [newAmount, setNewAmount] = useState('');
-  const [newMemo, setNewMemo] = useState('');
-
-  const triggerToast = (msg: string, type: 'success' | 'error' = 'success') => {
-    setToastMessage(msg);
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToastMessage(message);
     setToastType(type);
     setToastVisible(true);
   };
 
-  const handleAddTransaction = () => {
-    if (!newAmount || isNaN(Number(newAmount)) || Number(newAmount) <= 0) {
-      triggerToast('Please enter a valid transaction amount.', 'error');
+  // Add Item to Factory Expenses
+  const handleAddFactoryItem = () => {
+    if (!factoryType) {
+      showToast('Please select Expense Type', 'error');
+      return;
+    }
+    const amtNum = parseFloat(factoryAmount);
+    if (!factoryAmount.trim() || isNaN(amtNum) || amtNum <= 0) {
+      showToast('Please enter a valid amount', 'error');
       return;
     }
 
-    const newItem: TransactionItem = {
-      id: `tx_${Date.now()}`,
-      date: newDate.trim() || '27-08-2026',
-      debitAccount: newDebitAccount.trim() || 'General Expense',
-      creditAccount: newCreditAccount.trim() || 'Cash in Hand',
-      amount: Number(newAmount),
-      memo: newMemo.trim() || '-',
+    const typeLabel =
+      expenseAccountOptions.find((o) => o.value === factoryType)?.label || factoryType;
+
+    const newItem: FactoryItem = {
+      id: Date.now().toString(),
+      type: typeLabel,
+      typeValue: factoryType,
+      description: factoryDescription.trim(),
+      amount: factoryAmount.trim(),
     };
 
-    setTransactions([newItem, ...transactions]);
-    setIsModalVisible(false);
-
-    // Reset Form
-    setNewAmount('');
-    setNewMemo('');
-    triggerToast('Transaction added successfully!');
+    setFactoryItems((prev) => [...prev, newItem]);
+    setFactoryType(null);
+    setFactoryDescription('');
+    setFactoryAmount('');
   };
 
-  const handleDeleteTransaction = (id: string) => {
-    setTransactions(transactions.filter((item) => item.id !== id));
-    triggerToast('Transaction deleted successfully.');
+  const removeFactoryItem = (id: string) => {
+    setFactoryItems((prev) => prev.filter((it) => it.id !== id));
   };
 
-  const handlePrintTransaction = (item: TransactionItem) => {
-    triggerToast(
-      `Printing Receipt for ${item.debitAccount} (Rs. ${item.amount.toLocaleString()})...`,
-    );
+  const calculateTotal = (items: { amount: string }[]) => {
+    return items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
   };
 
-  // Filtered Transactions
-  const filteredTransactions = transactions.filter(
-    (tx) =>
-      tx.debitAccount.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tx.creditAccount.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tx.memo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tx.date.includes(searchQuery),
-  );
+  const resetForm = () => {
+    setReceiptFrom(null);
+    setReceiptAmount('');
+    setFactoryItems([]);
+    setFactoryType(null);
+    setFactoryDescription('');
+    setFactoryAmount('');
+  };
 
-  // Total Amounts
-  const totalAmount = transactions.reduce((acc, item) => acc + item.amount, 0);
+  const handleSubmit = async () => {
+    if (mainTab === 'receipt') {
+      if (!receiptFrom) {
+        showToast('Please select Receipt From account', 'error');
+        return;
+      }
+      const amtNum = parseFloat(receiptAmount);
+      if (!receiptAmount.trim() || isNaN(amtNum) || amtNum <= 0) {
+        showToast('Please enter a valid receipt amount', 'error');
+        return;
+      }
+
+      try {
+        const receiptDetail = [
+          {
+            account_code: receiptFrom,
+            amount: receiptAmount.trim(),
+          },
+        ];
+
+        const payload = {
+          trans_date: selectedDate,
+          amount: receiptAmount.trim(),
+          user_id: userId,
+          receipt_detail: JSON.stringify(receiptDetail),
+        };
+
+        const res = await postReceipt(payload).unwrap();
+        if (
+          res.status === true ||
+          res.status === 'true' ||
+          res.message?.toLowerCase().includes('success')
+        ) {
+          showToast('Receipt submitted successfully!', 'success');
+          resetForm();
+        } else {
+          showToast(res.message || 'Server error while submitting receipt', 'error');
+        }
+      } catch (err: any) {
+        console.error('Receipt Submission Error:', err);
+        showToast(err?.data?.message || 'Network error while submitting receipt', 'error');
+      }
+    } else {
+      // Payment (Factory Expenses)
+      if (factoryItems.length === 0) {
+        showToast('Please add at least one expense item to table', 'error');
+        return;
+      }
+
+      const totalAmount = calculateTotal(factoryItems);
+      const expenseDetail = factoryItems.map((item) => ({
+        account_code: item.typeValue,
+        amount: parseFloat(item.amount) || 0,
+        line_memo: item.description || '',
+      }));
+
+      try {
+        const payload = {
+          trans_date: selectedDate,
+          amount: totalAmount.toString(),
+          user_id: userId,
+          expense_detail: JSON.stringify(expenseDetail),
+        };
+
+        const res = await postPayment(payload).unwrap();
+        if (
+          res.status === true ||
+          res.status === 'true' ||
+          res.message?.toLowerCase().includes('success')
+        ) {
+          showToast('Expenses submitted successfully!', 'success');
+          resetForm();
+        } else {
+          showToast(res.message || 'Server error while submitting payment', 'error');
+        }
+      } catch (err: any) {
+        console.error('Payment Error:', err);
+        showToast(err?.data?.message || 'Network error while submitting payment', 'error');
+      }
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
+      <CustomToast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
+      />
 
-      {/* Regal Brand Screen Header with Gold Crown Emblem & Flourish */}
       <ScreenHeader
         title="Daily Expenses"
         onBackPress={onBack}
         onHomePress={onHome}
       />
 
+      {/* Main Tab Bar (Receipt vs Payment) */}
+      <View style={styles.mainTabContainer}>
+        <TouchableOpacity
+          style={[styles.mainTab, mainTab === 'receipt' && styles.mainTabActive]}
+          onPress={() => setMainTab('receipt')}
+          activeOpacity={0.8}
+        >
+          <FileTextIcon
+            size={16}
+            color={mainTab === 'receipt' ? '#FFFFFF' : Colors.textSecondary}
+          />
+          <Text
+            style={[
+              styles.mainTabText,
+              mainTab === 'receipt' && styles.mainTabTextActive,
+            ]}
+          >
+            Receipt
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.mainTab, mainTab === 'payment' && styles.mainTabActive]}
+          onPress={() => setMainTab('payment')}
+          activeOpacity={0.8}
+        >
+          <WalletIcon
+            size={16}
+            color={mainTab === 'payment' ? '#FFFFFF' : Colors.textSecondary}
+          />
+          <Text
+            style={[
+              styles.mainTabText,
+              mainTab === 'payment' && styles.mainTabTextActive,
+            ]}
+          >
+            Payment
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* KPI Summary Cards */}
-        <View style={styles.kpiRow}>
-          <View style={[styles.kpiCard, { borderLeftColor: Colors.primary }]}>
-            <View style={styles.kpiHeader}>
-              <WalletIcon size={18} color={Colors.primary} />
-              <Text style={styles.kpiTitle}>Total Expenses</Text>
-            </View>
-            <Text style={styles.kpiValue}>Rs. {totalAmount.toLocaleString()}</Text>
-            <Text style={styles.kpiSub}>Today's Transactions</Text>
-          </View>
-
-          <View style={[styles.kpiCard, { borderLeftColor: '#28a745' }]}>
-            <View style={styles.kpiHeader}>
-              <CalculatorIcon size={18} color="#28a745" />
-              <Text style={styles.kpiTitle}>Total Entries</Text>
-            </View>
-            <Text style={[styles.kpiValue, { color: '#28a745' }]}>
-              {transactions.length}
-            </Text>
-            <Text style={styles.kpiSub}>Recorded Rows</Text>
-          </View>
+        {/* Date Selector Card */}
+        <View style={styles.card}>
+          <Text style={styles.fieldLabel}>Date</Text>
+          <TouchableOpacity
+            style={styles.datePickerButton}
+            onPress={() => setIsDatePickerOpen(true)}
+            activeOpacity={0.8}
+          >
+            <CalendarIcon size={18} color={Colors.primary} />
+            <Text style={styles.datePickerText}>{selectedDate}</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Search & Filter Bar */}
-        <View style={styles.searchBarContainer}>
-          <SearchIcon size={18} color={Colors.textMuted} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search narration, account or date..."
-            placeholderTextColor={Colors.textMuted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-
-        {/* DAILY CASH TRANSACTION Card matching user image */}
-        <View style={styles.mainCard}>
-          {/* Main Card Deep Burgundy Banner */}
-          <View style={styles.cardHeaderBanner}>
-            <View style={styles.bannerLeft}>
-              <CalculatorIcon size={22} color="#FFFFFF" />
-              <Text style={styles.bannerTitle}>DAILY CASH TRANSACTION</Text>
+        {mainTab === 'receipt' ? (
+          /* RECEIPT FORM */
+          <View style={styles.card}>
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardTitle}>Receipt Details</Text>
             </View>
 
-            <View style={styles.bannerRight}>
+            {/* Receipt From Dropdown */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.fieldLabel}>Receipt From</Text>
               <TouchableOpacity
-                style={styles.addRowButton}
-                onPress={() => setIsModalVisible(true)}
+                style={[
+                  styles.dropdownButton,
+                  !receiptFrom && styles.dropdownButtonEmpty,
+                ]}
+                onPress={() => setDropdownModalType('receipt_account')}
                 activeOpacity={0.8}
               >
-                <PlusBookingIcon size={14} color="#FFFFFF" />
-                <Text style={styles.addRowText}>+ Add Row</Text>
+                <Text
+                  style={[
+                    styles.dropdownButtonText,
+                    !receiptFrom && styles.dropdownButtonPlaceholder,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {receiptFrom
+                    ? receiptAccountOptions.find((o) => o.value === receiptFrom)?.label ||
+                      'Selected Account'
+                    : isAccountsLoading
+                    ? 'Loading accounts...'
+                    : 'Select Receipt From ▾'}
+                </Text>
               </TouchableOpacity>
+            </View>
 
-              <View style={styles.datePill}>
-                <Text style={styles.datePillText}>Thursday, 27 August 2026</Text>
-              </View>
+            {/* Amount */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.fieldLabel}>Amount (Rs)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="0.00"
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="numeric"
+                value={receiptAmount}
+                onChangeText={setReceiptAmount}
+              />
             </View>
           </View>
+        ) : (
+          /* PAYMENT (EXPENSES) FORM */
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Expense Details</Text>
 
-          {/* Table Container with Horizontal Scroll for Mobile Precision */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.tableInnerContainer}>
-              {/* Table Header Row */}
-              <View style={styles.tableHeaderRow}>
-                <Text style={[styles.tableHeaderCell, { width: 90 }]}>DATE</Text>
-                <Text style={[styles.tableHeaderCell, { width: 150 }]}>
-                  DEBIT ACCOUNT
-                </Text>
-                <Text style={[styles.tableHeaderCell, { width: 130 }]}>
-                  CREDIT ACCOUNT
-                </Text>
+            {/* Type Dropdown */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.fieldLabel}>Expense Type</Text>
+              <TouchableOpacity
+                style={[
+                  styles.dropdownButton,
+                  !factoryType && styles.dropdownButtonEmpty,
+                ]}
+                onPress={() => setDropdownModalType('factory_type')}
+                activeOpacity={0.8}
+              >
                 <Text
                   style={[
-                    styles.tableHeaderCell,
-                    { width: 90, textAlign: 'right' },
+                    styles.dropdownButtonText,
+                    !factoryType && styles.dropdownButtonPlaceholder,
                   ]}
+                  numberOfLines={1}
                 >
-                  AMOUNT
+                  {factoryType
+                    ? expenseAccountOptions.find((o) => o.value === factoryType)?.label ||
+                      'Selected Type'
+                    : isExpenseAccountsLoading
+                    ? 'Loading types...'
+                    : 'Select Type ▾'}
                 </Text>
-                <Text style={[styles.tableHeaderCell, { width: 170, paddingLeft: 12 }]}>
-                  MEMO / NARRATION
-                </Text>
-                <Text
-                  style={[
-                    styles.tableHeaderCell,
-                    { width: 80, textAlign: 'center' },
-                  ]}
-                >
-                  PRINT
-                </Text>
-              </View>
-
-              {/* Account Group Row (Cash in Hand summary row) */}
-              <View style={styles.accountGroupRow}>
-                <Text style={styles.accountGroupText}>Cash in Hand</Text>
-              </View>
-
-              {/* Data Rows */}
-              {filteredTransactions.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>No cash transactions found.</Text>
-                </View>
-              ) : (
-                filteredTransactions.map((item, index) => (
-                  <View
-                    key={item.id}
-                    style={[
-                      styles.tableDataRow,
-                      index % 2 === 1 && styles.tableDataRowAlt,
-                    ]}
-                  >
-                    <Text style={[styles.tableCellText, { width: 90 }]}>
-                      {item.date}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.tableCellText,
-                        { width: 150, fontWeight: '600', color: Colors.textPrimary },
-                      ]}
-                      numberOfLines={2}
-                    >
-                      {item.debitAccount}
-                    </Text>
-                    <Text style={[styles.tableCellText, { width: 130 }]} numberOfLines={2}>
-                      {item.creditAccount}
-                    </Text>
-                    <Text style={[styles.amountCell, { width: 90 }]}>
-                      {item.amount.toLocaleString()}
-                    </Text>
-                    <Text
-                      style={[styles.tableCellText, { width: 170, paddingLeft: 12 }]}
-                      numberOfLines={2}
-                    >
-                      {item.memo}
-                    </Text>
-
-                    {/* Actions (Print & Delete) */}
-                    <View style={[styles.actionCellContainer, { width: 80 }]}>
-                      <TouchableOpacity
-                        style={styles.iconActionButton}
-                        onPress={() => handlePrintTransaction(item)}
-                        activeOpacity={0.7}
-                      >
-                        <PrinterIcon size={18} color="#1a365d" />
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.iconActionButton}
-                        onPress={() => handleDeleteTransaction(item.id)}
-                        activeOpacity={0.7}
-                      >
-                        <TrashIcon size={16} color={Colors.accentRed} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))
-              )}
+              </TouchableOpacity>
             </View>
-          </ScrollView>
-        </View>
+
+            {/* Description */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.fieldLabel}>Description</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Enter description..."
+                placeholderTextColor={Colors.textMuted}
+                value={factoryDescription}
+                onChangeText={setFactoryDescription}
+              />
+            </View>
+
+            {/* Amount */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.fieldLabel}>Amount (Rs)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="0.00"
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="numeric"
+                value={factoryAmount}
+                onChangeText={setFactoryAmount}
+              />
+            </View>
+
+            {/* Add Item Button */}
+            <TouchableOpacity
+              style={styles.addItemButton}
+              onPress={handleAddFactoryItem}
+              activeOpacity={0.8}
+            >
+              <PlusIcon size={16} color="#FFFFFF" strokeWidth={2.5} />
+              <Text style={styles.addItemButtonText}>Add to Table</Text>
+            </TouchableOpacity>
+
+            {/* Factory Items Table */}
+            {factoryItems.length > 0 && (
+              <View style={styles.tableContainer}>
+                <View style={styles.tableHeaderRow}>
+                  <Text style={[styles.tableHeadCell, { flex: 0.5 }]}>#</Text>
+                  <Text style={[styles.tableHeadCell, { flex: 1.5 }]}>Type</Text>
+                  <Text style={[styles.tableHeadCell, { flex: 2 }]}>Description</Text>
+                  <Text style={[styles.tableHeadCell, { flex: 1.2, textAlign: 'right' }]}>
+                    Amount
+                  </Text>
+                  <Text style={[styles.tableHeadCell, { flex: 0.6, textAlign: 'center' }]}>
+                    Action
+                  </Text>
+                </View>
+
+                {factoryItems.map((item, index) => (
+                  <View key={item.id} style={styles.tableBodyRow}>
+                    <Text style={[styles.tableBodyCell, { flex: 0.5 }]}>{index + 1}</Text>
+                    <Text style={[styles.tableBodyCell, { flex: 1.5, fontWeight: '600' }]} numberOfLines={1}>
+                      {item.type}
+                    </Text>
+                    <Text style={[styles.tableBodyCell, { flex: 2 }]} numberOfLines={2}>
+                      {item.description || '-'}
+                    </Text>
+                    <Text style={[styles.tableBodyCell, { flex: 1.2, textAlign: 'right', fontWeight: 'bold' }]}>
+                      Rs. {parseFloat(item.amount).toLocaleString()}
+                    </Text>
+                    <TouchableOpacity
+                      style={{ flex: 0.6, alignItems: 'center' }}
+                      onPress={() => removeFactoryItem(item.id)}
+                    >
+                      <TrashIcon size={16} color={Colors.accentRed} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+
+                <View style={styles.tableTotalRow}>
+                  <Text style={styles.tableTotalLabel}>Total Amount:</Text>
+                  <Text style={styles.tableTotalValue}>
+                    Rs. {calculateTotal(factoryItems).toLocaleString()}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Submit Button */}
+        <TouchableOpacity
+          style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+          onPress={handleSubmit}
+          disabled={isSubmitting}
+          activeOpacity={0.85}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.submitButtonText}>Submit</Text>
+          )}
+        </TouchableOpacity>
       </ScrollView>
 
-      {/* Add Transaction Modal */}
-      <Modal
-        visible={isModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Cash Transaction</Text>
-            </View>
+      {/* Date Picker Modal */}
+      <CalendarPickerModal
+        visible={isDatePickerOpen}
+        onClose={() => setIsDatePickerOpen(false)}
+        onSelectDateTime={(dateStr) => {
+          setSelectedDate(dateStr);
+          setIsDatePickerOpen(false);
+        }}
+      />
 
-            <ScrollView style={styles.modalBody}>
-              <Text style={styles.inputLabel}>Date</Text>
-              <TextInput
-                style={styles.modalInput}
-                value={newDate}
-                onChangeText={setNewDate}
-                placeholder="DD-MM-YYYY"
-              />
+      {/* Dropdown Modals */}
+      <CustomDropdownModal
+        visible={dropdownModalType === 'receipt_account'}
+        title="Select Receipt From"
+        options={receiptAccountOptions}
+        selectedValue={receiptFrom || undefined}
+        onSelect={(val) => {
+          setReceiptFrom(val);
+          setDropdownModalType(null);
+        }}
+        onClose={() => setDropdownModalType(null)}
+      />
 
-              <Text style={styles.inputLabel}>Debit Account</Text>
-              <TextInput
-                style={styles.modalInput}
-                value={newDebitAccount}
-                onChangeText={setNewDebitAccount}
-                placeholder="e.g. Advances and Deposits"
-              />
-
-              <Text style={styles.inputLabel}>Credit Account</Text>
-              <TextInput
-                style={styles.modalInput}
-                value={newCreditAccount}
-                onChangeText={setNewCreditAccount}
-                placeholder="e.g. Bank Islami / Cash in Hand"
-              />
-
-              <Text style={styles.inputLabel}>Amount (PKR)</Text>
-              <TextInput
-                style={styles.modalInput}
-                value={newAmount}
-                onChangeText={setNewAmount}
-                placeholder="e.g. 500"
-                keyboardType="numeric"
-              />
-
-              <Text style={styles.inputLabel}>Memo / Narration</Text>
-              <TextInput
-                style={[styles.modalInput, { height: 70 }]}
-                value={newMemo}
-                onChangeText={setNewMemo}
-                placeholder="Description of transaction"
-                multiline
-              />
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setIsModalVisible(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.saveButton}
-                onPress={handleAddTransaction}
-              >
-                <Text style={styles.saveButtonText}>Save Transaction</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Custom Toast Notification */}
-      <CustomToast
-        visible={toastVisible}
-        message={toastMessage}
-        type={toastType}
-        onHide={() => setToastVisible(false)}
+      <CustomDropdownModal
+        visible={dropdownModalType === 'factory_type'}
+        title="Select Expense Type"
+        options={expenseAccountOptions}
+        selectedValue={factoryType || undefined}
+        onSelect={(val) => {
+          setFactoryType(val);
+          setDropdownModalType(null);
+        }}
+        onClose={() => setDropdownModalType(null)}
       />
     </SafeAreaView>
   );
@@ -408,272 +530,205 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  scrollContent: {
-    padding: Spacing.md,
-    paddingBottom: Spacing.xxl,
-  },
-  kpiRow: {
+  mainTabContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.md,
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.sm,
+    borderRadius: Spacing.borderRadius.md,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  kpiCard: {
-    flex: 0.48,
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 10,
-    padding: Spacing.md,
-    borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  kpiHeader: {
+  mainTab: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: Spacing.borderRadius.sm,
+    gap: 6,
+  },
+  mainTabActive: {
+    backgroundColor: Colors.primary,
+  },
+  mainTabText: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  mainTabTextActive: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  scrollContent: {
+    padding: Spacing.lg,
+    paddingBottom: Spacing.xxl + 20,
+    gap: Spacing.md,
+  },
+  card: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: Spacing.borderRadius.md,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+    gap: Spacing.sm + 4,
+  },
+  cardHeaderRow: {
     marginBottom: 4,
   },
-  kpiTitle: {
-    fontSize: Typography.fontSize.xs,
-    color: Colors.textMuted,
-    fontWeight: '600',
-    marginLeft: 6,
-  },
-  kpiValue: {
-    fontSize: Typography.fontSize.lg,
-    fontWeight: 'bold',
-    color: Colors.primary,
-    marginVertical: 2,
-  },
-  kpiSub: {
-    fontSize: 11,
-    color: Colors.textMuted,
-  },
-  searchBarContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 8,
-    paddingHorizontal: Spacing.md,
-    height: 44,
-    marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: Spacing.sm,
-    fontSize: Typography.fontSize.sm,
-    color: Colors.textPrimary,
-  },
-  mainCard: {
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  cardHeaderBanner: {
-    backgroundColor: Colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-  },
-  bannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  bannerTitle: {
-    color: '#FFFFFF',
+  cardTitle: {
     fontSize: Typography.fontSize.base,
     fontWeight: 'bold',
-    marginLeft: 8,
-    letterSpacing: 0.8,
+    color: Colors.textPrimary,
   },
-  bannerRight: {
+  fieldLabel: {
+    fontSize: Typography.fontSize.xs + 1,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginBottom: 4,
+  },
+  datePickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    backgroundColor: '#FAF8F5',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Spacing.borderRadius.sm,
+    paddingHorizontal: Spacing.md,
+    height: 46,
+    gap: Spacing.sm,
   },
-  addRowButton: {
-    backgroundColor: '#1e7e34',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    marginRight: 10,
+  datePickerText: {
+    fontSize: Typography.fontSize.sm + 1,
+    color: Colors.textPrimary,
+    fontWeight: '600',
   },
-  addRowText: {
-    color: '#FFFFFF',
-    fontSize: Typography.fontSize.xs,
-    fontWeight: 'bold',
-    marginLeft: 4,
+  inputGroup: {
+    gap: 2,
   },
-  datePill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
+  dropdownButton: {
+    backgroundColor: '#FAF8F5',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Spacing.borderRadius.sm,
+    paddingHorizontal: Spacing.md,
+    height: 46,
+    justifyContent: 'center',
   },
-  datePillText: {
-    color: '#FFFFFF',
-    fontSize: 11,
+  dropdownButtonEmpty: {
+    borderColor: '#E2E8F0',
+  },
+  dropdownButtonText: {
+    fontSize: Typography.fontSize.sm + 1,
+    color: Colors.textPrimary,
     fontWeight: '500',
   },
-  tableInnerContainer: {
-    minWidth: 710,
+  dropdownButtonPlaceholder: {
+    color: Colors.textMuted,
+  },
+  textInput: {
+    backgroundColor: '#FAF8F5',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Spacing.borderRadius.sm,
+    paddingHorizontal: Spacing.md,
+    height: 46,
+    fontSize: Typography.fontSize.sm + 1,
+    color: Colors.textPrimary,
+  },
+  addItemButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary,
+    height: 44,
+    borderRadius: Spacing.borderRadius.sm,
+    gap: 6,
+    marginTop: Spacing.xs,
+  },
+  addItemButtonText: {
+    color: '#FFFFFF',
+    fontSize: Typography.fontSize.sm,
+    fontWeight: 'bold',
+  },
+  tableContainer: {
+    marginTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Spacing.borderRadius.sm,
+    overflow: 'hidden',
   },
   tableHeaderRow: {
-    backgroundColor: Colors.primary,
     flexDirection: 'row',
+    backgroundColor: '#FEE2E2',
+    paddingVertical: 8,
+    paddingHorizontal: Spacing.sm,
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
   },
-  tableHeaderCell: {
-    color: '#FFFFFF',
+  tableHeadCell: {
     fontSize: 11,
     fontWeight: 'bold',
-    letterSpacing: 0.5,
+    color: Colors.primary,
   },
-  accountGroupRow: {
-    backgroundColor: '#FAF8F5',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
-  },
-  accountGroupText: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.textSecondary,
-    fontWeight: '500',
-    paddingLeft: 90,
-  },
-  tableDataRow: {
+  tableBodyRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0ECE1',
+    borderBottomColor: '#F2F2F2',
     backgroundColor: '#FFFFFF',
   },
-  tableDataRowAlt: {
-    backgroundColor: '#FAF9F6',
-  },
-  tableCellText: {
+  tableBodyCell: {
     fontSize: Typography.fontSize.xs,
-    color: Colors.textSecondary,
-  },
-  amountCell: {
-    textAlign: 'right',
-    fontSize: Typography.fontSize.xs,
-    fontWeight: 'bold',
-    color: '#1a365d',
-  },
-  actionCellContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  iconActionButton: {
-    padding: 6,
-    marginHorizontal: 4,
-  },
-  emptyContainer: {
-    padding: Spacing.xl,
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: Colors.textMuted,
-    fontSize: Typography.fontSize.sm,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: Spacing.md,
-  },
-  modalContainer: {
-    width: '100%',
-    maxWidth: 420,
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 14,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  modalHeader: {
-    backgroundColor: Colors.primary,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-  },
-  modalTitle: {
-    color: '#FFFFFF',
-    fontSize: Typography.fontSize.md,
-    fontWeight: 'bold',
-  },
-  modalBody: {
-    padding: Spacing.lg,
-    maxHeight: 380,
-  },
-  inputLabel: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
     color: Colors.textPrimary,
-    marginBottom: 4,
-    marginTop: 8,
   },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: Typography.fontSize.sm,
-    color: Colors.textPrimary,
-    backgroundColor: '#FAF8F5',
-  },
-  modalFooter: {
+  tableTotalRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    padding: Spacing.md,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FAF5EE',
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
-    backgroundColor: '#FAF8F5',
+    borderTopColor: '#EBE5D8',
   },
-  cancelButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 8,
-    marginRight: 10,
+  tableTotalLabel: {
+    fontSize: Typography.fontSize.xs + 1,
+    fontWeight: 'bold',
+    color: Colors.textPrimary,
   },
-  cancelButtonText: {
-    color: Colors.textMuted,
-    fontWeight: '600',
+  tableTotalValue: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: 'bold',
+    color: Colors.primary,
   },
-  saveButton: {
+  submitButton: {
     backgroundColor: Colors.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    height: 50,
+    borderRadius: Spacing.borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+    marginTop: Spacing.xs,
   },
-  saveButtonText: {
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
+  submitButtonText: {
     color: '#FFFFFF',
+    fontSize: Typography.fontSize.base,
     fontWeight: 'bold',
   },
 });
