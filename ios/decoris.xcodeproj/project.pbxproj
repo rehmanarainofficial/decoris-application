@@ -11,6 +11,7 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3CB4606958E0B24DDAA2BC91 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
+		A1B2C3D42CA45674006654EE /* FabricFix.mm in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D32CA45674006654EE /* FabricFix.mm */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 /* End PBXBuildFile section */
 
@@ -23,6 +24,7 @@
 		5709B34CF0A7D63546082F79 /* Pods-decoris.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-decoris.release.xcconfig"; path = "Target Support Files/Pods-decoris/Pods-decoris.release.xcconfig"; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-decoris.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-decoris.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = decoris/AppDelegate.swift; sourceTree = "<group>"; };
+		A1B2C3D32CA45674006654EE /* FabricFix.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = FabricFix.mm; path = decoris/FabricFix.mm; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = decoris/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
@@ -44,6 +46,7 @@
 			children = (
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
+				A1B2C3D32CA45674006654EE /* FabricFix.mm */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
@@ -191,13 +194,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-decoris/Pods-decoris-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-decoris/Pods-decoris-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -234,13 +233,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-decoris/Pods-decoris-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-decoris/Pods-decoris-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -255,6 +250,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
+				A1B2C3D42CA45674006654EE /* FabricFix.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -267,11 +263,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = Y2S8G62B78;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = decoris/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Decoris Events";
+				INFOPLIST_KEY_CFBundleDisplayName = BackStages;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -300,10 +296,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = Y2S8G62B78;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"REACT_NATIVE_PRODUCTION=1",
+					"NDEBUG=1",
+				);
 				INFOPLIST_FILE = decoris/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Decoris Events";
+				INFOPLIST_KEY_CFBundleDisplayName = BackStages;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -311,6 +312,11 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.1;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-DREACT_NATIVE_PRODUCTION=1",
+					"-DNDEBUG=1",
+				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -391,6 +397,7 @@
 					"-DRCT_REMOVE_LEGACY_ARCH=1",
 				);
 				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
 					"$(OTHER_CFLAGS)",
 					"-DFOLLY_NO_CONFIG",
 					"-DFOLLY_MOBILE=1",
@@ -459,12 +466,18 @@
 					"\"$(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME)\"",
 					"\"$(inherited)\"",
 				);
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"REACT_NATIVE_PRODUCTION=1",
+					"NDEBUG=1",
+				);
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-DRCT_REMOVE_LEGACY_ARCH=1",
 				);
 				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
 					"$(OTHER_CFLAGS)",
 					"-DFOLLY_NO_CONFIG",
 					"-DFOLLY_MOBILE=1",
