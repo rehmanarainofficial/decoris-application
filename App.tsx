@@ -14,9 +14,12 @@ import {
   EventCalendarScreen,
   DailyExpenseScreen,
   SalesPaymentsScreen,
-  InventoryMovementScreen,
   EventCostingScreen,
   LedgerScreen,
+  ManagementScreen,
+  FinancialDetailScreen,
+  AccountDetailScreen,
+  InventoryValuationScreen,
 } from './src/screens';
 
 import { EventQuotationHeaderItem } from './src/api/bookingApi';
@@ -64,12 +67,53 @@ function MainAppNavigator(): React.JSX.Element {
   const [editingEventData, setEditingEventData] = useState<EventQuotationHeaderItem | null>(null);
   const [costingEventData, setCostingEventData] = useState<EventQuotationHeaderItem | any | null>(null);
   const [savedEventData, setSavedEventData] = useState<any>(null);
+  const [financialDetailParams, setFinancialDetailParams] = useState<{
+    type: 'Receivable' | 'Payable' | 'Cash/Bank';
+    title: string;
+  } | null>(null);
+  const [accountDetailParams, setAccountDetailParams] = useState<{
+    title: string;
+    accountType: string;
+    fromDate?: string;
+    toDate?: string;
+  } | null>(null);
+  const [ledgerParams, setLedgerParams] = useState<{
+    account?: string;
+    personId?: string;
+    title?: string;
+    fromDate?: string;
+    toDate?: string;
+    previousScreen?: 'ACCOUNT_DETAIL' | 'FINANCIAL_DETAIL' | 'DASHBOARD';
+  } | null>(null);
 
-  // Android Hardware / Gesture Back Button Handling
   useEffect(() => {
     const onBackPress = () => {
       if (!isAuthenticated || isSplashActive) {
         return false;
+      }
+
+      if (currentScreen === 'LEDGER' && ledgerParams?.previousScreen === 'ACCOUNT_DETAIL') {
+        setCurrentScreen('ACCOUNT_DETAIL');
+        return true;
+      }
+
+      if (currentScreen === 'LEDGER' && ledgerParams?.previousScreen === 'FINANCIAL_DETAIL') {
+        setCurrentScreen('FINANCIAL_DETAIL');
+        return true;
+      }
+
+      if (
+        currentScreen === 'FINANCIAL_DETAIL' ||
+        currentScreen === 'ACCOUNT_DETAIL' ||
+        currentScreen === 'INVENTORY_VALUATION'
+      ) {
+        setCurrentScreen('MANAGEMENT');
+        return true;
+      }
+
+      if (currentScreen === 'MANAGEMENT') {
+        setCurrentScreen('DASHBOARD');
+        return true;
       }
 
       if (currentScreen === 'EVENT_COSTING') {
@@ -146,6 +190,8 @@ function MainAppNavigator(): React.JSX.Element {
       setCurrentScreen('DAILY_EXPENSE');
     } else if (screenTitle === 'Sales & Payments') {
       setCurrentScreen('SALES_PAYMENTS');
+    } else if (screenTitle === 'Management') {
+      setCurrentScreen('MANAGEMENT');
     } else if (
       screenTitle === 'Ledger' ||
       screenTitle === 'General Ledger' ||
@@ -222,10 +268,76 @@ function MainAppNavigator(): React.JSX.Element {
         onHome={() => setCurrentScreen('DASHBOARD')}
       />
     );
+  } else if (currentScreen === 'MANAGEMENT') {
+    activeView = (
+      <ManagementScreen
+        onNavigateFinancialDetail={(params) => {
+          setFinancialDetailParams(params);
+          setCurrentScreen('FINANCIAL_DETAIL');
+        }}
+        onNavigateInventoryValuation={() => {
+          setCurrentScreen('INVENTORY_VALUATION');
+        }}
+        onNavigateAccountDetail={(params) => {
+          setAccountDetailParams(params);
+          setCurrentScreen('ACCOUNT_DETAIL');
+        }}
+        onBack={() => setCurrentScreen('DASHBOARD')}
+        onHome={() => setCurrentScreen('DASHBOARD')}
+      />
+    );
+  } else if (currentScreen === 'FINANCIAL_DETAIL' && financialDetailParams) {
+    activeView = (
+      <FinancialDetailScreen
+        type={financialDetailParams.type}
+        title={financialDetailParams.title}
+        onNavigateLedger={(params) => {
+          setLedgerParams({ ...params, previousScreen: 'FINANCIAL_DETAIL' });
+          setCurrentScreen('LEDGER');
+        }}
+        onBack={() => setCurrentScreen('MANAGEMENT')}
+        onHome={() => setCurrentScreen('DASHBOARD')}
+      />
+    );
+  } else if (currentScreen === 'ACCOUNT_DETAIL' && accountDetailParams) {
+    activeView = (
+      <AccountDetailScreen
+        title={accountDetailParams.title}
+        accountType={accountDetailParams.accountType}
+        initialFromDate={accountDetailParams.fromDate}
+        initialToDate={accountDetailParams.toDate}
+        onNavigateLedger={(params) => {
+          setLedgerParams({ ...params, previousScreen: 'ACCOUNT_DETAIL' });
+          setCurrentScreen('LEDGER');
+        }}
+        onBack={() => setCurrentScreen('MANAGEMENT')}
+        onHome={() => setCurrentScreen('DASHBOARD')}
+      />
+    );
+  } else if (currentScreen === 'INVENTORY_VALUATION') {
+    activeView = (
+      <InventoryValuationScreen
+        onBack={() => setCurrentScreen('MANAGEMENT')}
+        onHome={() => setCurrentScreen('DASHBOARD')}
+      />
+    );
   } else if (currentScreen === 'LEDGER' || currentScreen === 'INVENTORY_MOVEMENT') {
     activeView = (
       <LedgerScreen
-        onBack={() => setCurrentScreen('DASHBOARD')}
+        initialAccount={ledgerParams?.account}
+        initialPersonId={ledgerParams?.personId}
+        initialAccountName={ledgerParams?.title}
+        initialFromDate={ledgerParams?.fromDate}
+        initialToDate={ledgerParams?.toDate}
+        onBack={() => {
+          if (ledgerParams?.previousScreen === 'ACCOUNT_DETAIL') {
+            setCurrentScreen('ACCOUNT_DETAIL');
+          } else if (ledgerParams?.previousScreen === 'FINANCIAL_DETAIL') {
+            setCurrentScreen('FINANCIAL_DETAIL');
+          } else {
+            setCurrentScreen('DASHBOARD');
+          }
+        }}
         onHome={() => setCurrentScreen('DASHBOARD')}
       />
     );

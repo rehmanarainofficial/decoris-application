@@ -33,7 +33,10 @@ export interface GLAccountInquiryResponse {
 export interface GLAccountInquiryRequest {
   from_date: string;
   to_date: string;
-  account: string;
+  account?: string;
+  person_id?: string;
+  company?: string;
+  dimension_id?: string | number;
 }
 
 export const ledgerApi = baseApi.injectEndpoints({
@@ -54,7 +57,10 @@ export const ledgerApi = baseApi.injectEndpoints({
         const formData = new FormData();
         formData.append('from_date', String(bodyData.from_date));
         formData.append('to_date', String(bodyData.to_date));
-        formData.append('account', String(bodyData.account));
+        formData.append('account', String(bodyData.account || ''));
+        formData.append('person_id', String(bodyData.person_id || ''));
+        formData.append('company', String(bodyData.company || '1'));
+        formData.append('dimension_id', String(bodyData.dimension_id || ''));
 
         console.log('=== [GL_ACCOUNT_INQUIRY REQUEST] ===', bodyData);
 

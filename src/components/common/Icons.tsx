@@ -591,3 +591,133 @@ export const PlusIcon: React.FC<IconProps> = ({
   </Svg>
 );
 
+export const BankIcon: React.FC<IconProps> = ({
+  size = 22,
+  color = Colors.primary,
+  strokeWidth = 1.8,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M3 21H21M3 10H21M5 10V21M9 10V21M15 10V21M19 10V21M12 3L2 8V10H22V8L12 3Z"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+export const ArrowDownCircleIcon: React.FC<IconProps> = ({
+  size = 22,
+  color = Colors.primary,
+  strokeWidth = 1.8,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth={strokeWidth} />
+    <Path
+      d="M12 8V16M12 16L8 12M12 16L16 12"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+export const ArrowUpCircleIcon: React.FC<IconProps> = ({
+  size = 22,
+  color = Colors.primary,
+  strokeWidth = 1.8,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth={strokeWidth} />
+    <Path
+      d="M12 16V8M12 8L8 12M12 8L16 12"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+export const CubeIcon: React.FC<IconProps> = ({
+  size = 22,
+  color = Colors.primary,
+  strokeWidth = 1.8,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M21 16V8A2 2 0 0 0 19.9 6.27L13.9 2.27A2 2 0 0 0 11.9 2.27L5.9 6.27A2 2 0 0 0 4.8 8V16A2 2 0 0 0 5.9 17.73L11.9 21.73A2 2 0 0 0 13.9 21.73L19.9 17.73A2 2 0 0 0 21 16Z"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Polyline
+      points="3.27 6.96 12 12.01 20.73 6.96"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Line
+      x1="12"
+      y1="22.08"
+      x2="12"
+      y2="12"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+export const TrendingUpIcon: React.FC<IconProps> = ({
+  size = 14,
+  color = Colors.primary,
+  strokeWidth = 2,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Polyline
+      points="23 6 13.5 15.5 8.5 10.5 1 18"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Polyline
+      points="17 6 23 6 23 12"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+export const TrendingDownIcon: React.FC<IconProps> = ({
+  size = 14,
+  color = Colors.primary,
+  strokeWidth = 2,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Polyline
+      points="23 18 13.5 8.5 8.5 13.5 1 6"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Polyline
+      points="17 18 23 18 23 12"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+

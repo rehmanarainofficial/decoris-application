@@ -8,3 +8,4 @@ export * from './StatCard';
 export * from './Icons';
 export * from './BackstageLogo';
 export * from './StockPickerModal';
+export * from './DatePickerModal';

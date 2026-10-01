@@ -9,7 +9,7 @@ import {
   Pressable,
   ScrollView,
 } from 'react-native';
-import { CrownIcon, ChevronRightIcon, ArrowLeftIcon } from './Icons';
+import { ChevronRightIcon, ArrowLeftIcon, ChevronDownIcon } from './Icons';
 import { Colors, Typography, Spacing } from '../../constants';
 
 interface CalendarPickerModalProps {
@@ -33,14 +33,36 @@ const MONTH_NAMES = [
   'December',
 ];
 
+const MONTHS_SHORT = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+const CURRENT_SYSTEM_YEAR = new Date().getFullYear();
+const YEAR_LIST: number[] = [];
+for (let y = CURRENT_SYSTEM_YEAR + 5; y >= CURRENT_SYSTEM_YEAR - 30; y--) {
+  YEAR_LIST.push(y);
+}
+
 export const CalendarPickerModal: React.FC<CalendarPickerModalProps> = ({
   visible,
   onClose,
   onSelectDateTime,
 }) => {
-  const [selectedDay, setSelectedDay] = useState<number>(27);
-  const [currentYear, setCurrentYear] = useState<number>(2026);
-  const [currentMonthIndex, setCurrentMonthIndex] = useState<number>(7); // August (0-indexed 7)
+  const [selectedDay, setSelectedDay] = useState<number>(new Date().getDate());
+  const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
+  const [currentMonthIndex, setCurrentMonthIndex] = useState<number>(new Date().getMonth());
+  const [viewMode, setViewMode] = useState<'calendar' | 'year' | 'month'>('calendar');
   const [selectedTime, setSelectedTime] = useState<string>('02:35 PM');
   const [customTime, setCustomTime] = useState<string>('');
 
@@ -103,6 +125,16 @@ export const CalendarPickerModal: React.FC<CalendarPickerModalProps> = ({
     onClose();
   };
 
+  const handleYearSelect = (year: number) => {
+    setCurrentYear(year);
+    setViewMode('calendar');
+  };
+
+  const handleMonthSelect = (mIndex: number) => {
+    setCurrentMonthIndex(mIndex);
+    setViewMode('calendar');
+  };
+
   return (
     <Modal
       visible={visible}
@@ -117,108 +149,218 @@ export const CalendarPickerModal: React.FC<CalendarPickerModalProps> = ({
             <Text style={styles.modalTitle}>Select Date & Time</Text>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Interactive Month Switcher */}
-            <View style={styles.monthHeaderRow}>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                style={styles.arrowBtn}
-                onPress={handlePrevMonth}
+          {viewMode === 'year' && (
+            <View style={styles.selectorContainer}>
+              <View style={styles.selectorHeader}>
+                <TouchableOpacity
+                  style={styles.backToCalBtn}
+                  onPress={() => setViewMode('calendar')}
+                  activeOpacity={0.7}
+                >
+                  <ArrowLeftIcon size={14} color={Colors.primary} />
+                  <Text style={styles.backToCalText}>Calendar</Text>
+                </TouchableOpacity>
+                <Text style={styles.selectorTitle}>Select Year</Text>
+                <View style={{ width: 60 }} />
+              </View>
+
+              <ScrollView
+                style={styles.yearScroll}
+                contentContainerStyle={styles.yearGrid}
+                showsVerticalScrollIndicator={true}
               >
-                <ArrowLeftIcon size={16} color={Colors.primary} />
-              </TouchableOpacity>
-
-              <Text style={styles.monthText}>
-                {MONTH_NAMES[currentMonthIndex]} {currentYear}
-              </Text>
-
-              <TouchableOpacity
-                activeOpacity={0.7}
-                style={styles.arrowBtn}
-                onPress={handleNextMonth}
-              >
-                <ChevronRightIcon size={16} color={Colors.primary} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Days of Week Row */}
-            <View style={styles.daysHeaderRow}>
-              {daysOfWeek.map((day, idx) => (
-                <Text key={idx} style={styles.dayHeaderText}>
-                  {day}
-                </Text>
-              ))}
-            </View>
-
-            {/* Calendar Days Grid */}
-            <View style={styles.calendarGrid}>
-              {paddingDays.map((p) => (
-                <View key={`pad-${p}`} style={styles.dayCell} />
-              ))}
-              {monthDays.map((d) => {
-                const isSelected = selectedDay === d;
-                return (
-                  <TouchableOpacity
-                    key={`day-${d}`}
-                    style={[styles.dayCell, isSelected && styles.selectedDayCell]}
-                    onPress={() => setSelectedDay(d)}
-                    activeOpacity={0.8}
-                  >
-                    <Text
-                      style={[
-                        styles.dayCellText,
-                        isSelected && styles.selectedDayCellText,
-                      ]}
-                    >
-                      {d}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Time Slot & Custom Time Section */}
-            <View style={styles.timeSection}>
-              <Text style={styles.sectionLabel}>Select Time Slot</Text>
-              <View style={styles.timeGrid}>
-                {timeSlots.map((time) => {
-                  const isTimeSelected = selectedTime === time && !customTime;
+                {YEAR_LIST.map((year) => {
+                  const isCurrent = year === currentYear;
                   return (
                     <TouchableOpacity
-                      key={time}
+                      key={`yr_${year}`}
                       style={[
-                        styles.timeChip,
-                        isTimeSelected && styles.selectedTimeChip,
+                        styles.yearItem,
+                        isCurrent && styles.yearItemSelected,
                       ]}
-                      onPress={() => handleSelectPresetTime(time)}
+                      onPress={() => handleYearSelect(year)}
+                      activeOpacity={0.75}
+                    >
+                      <Text
+                        style={[
+                          styles.yearItemText,
+                          isCurrent && styles.yearItemTextSelected,
+                        ]}
+                      >
+                        {year}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
+
+          {viewMode === 'month' && (
+            <View style={styles.selectorContainer}>
+              <View style={styles.selectorHeader}>
+                <TouchableOpacity
+                  style={styles.backToCalBtn}
+                  onPress={() => setViewMode('calendar')}
+                  activeOpacity={0.7}
+                >
+                  <ArrowLeftIcon size={14} color={Colors.primary} />
+                  <Text style={styles.backToCalText}>Calendar</Text>
+                </TouchableOpacity>
+                <Text style={styles.selectorTitle}>Select Month</Text>
+                <View style={{ width: 60 }} />
+              </View>
+
+              <View style={styles.monthGrid}>
+                {MONTHS_SHORT.map((mName, index) => {
+                  const isCurrent = index === currentMonthIndex;
+                  return (
+                    <TouchableOpacity
+                      key={`m_${mName}`}
+                      style={[
+                        styles.monthItem,
+                        isCurrent && styles.monthItemSelected,
+                      ]}
+                      onPress={() => handleMonthSelect(index)}
+                      activeOpacity={0.75}
+                    >
+                      <Text
+                        style={[
+                          styles.monthItemText,
+                          isCurrent && styles.monthItemTextSelected,
+                        ]}
+                      >
+                        {mName}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {viewMode === 'calendar' && (
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Interactive Month & Year Switcher with Direct Selectors */}
+              <View style={styles.monthHeaderRow}>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={styles.arrowBtn}
+                  onPress={handlePrevMonth}
+                >
+                  <ArrowLeftIcon size={16} color={Colors.primary} />
+                </TouchableOpacity>
+
+                <View style={styles.headerCenterSelectors}>
+                  <TouchableOpacity
+                    style={styles.pillSelector}
+                    activeOpacity={0.7}
+                    onPress={() => setViewMode('month')}
+                  >
+                    <Text style={styles.pillSelectorText}>
+                      {MONTH_NAMES[currentMonthIndex]}
+                    </Text>
+                    <ChevronDownIcon size={11} color={Colors.primary} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.pillSelector, styles.yearPillSelector]}
+                    activeOpacity={0.7}
+                    onPress={() => setViewMode('year')}
+                  >
+                    <Text style={styles.pillSelectorText}>{currentYear}</Text>
+                    <ChevronDownIcon size={11} color={Colors.primary} />
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={styles.arrowBtn}
+                  onPress={handleNextMonth}
+                >
+                  <ChevronRightIcon size={16} color={Colors.primary} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Days of Week Row */}
+              <View style={styles.daysHeaderRow}>
+                {daysOfWeek.map((day, idx) => (
+                  <Text key={idx} style={styles.dayHeaderText}>
+                    {day}
+                  </Text>
+                ))}
+              </View>
+
+              {/* Calendar Days Grid */}
+              <View style={styles.calendarGrid}>
+                {paddingDays.map((p) => (
+                  <View key={`pad-${p}`} style={styles.dayCell} />
+                ))}
+                {monthDays.map((d) => {
+                  const isSelected = selectedDay === d;
+                  return (
+                    <TouchableOpacity
+                      key={`day-${d}`}
+                      style={[styles.dayCell, isSelected && styles.selectedDayCell]}
+                      onPress={() => setSelectedDay(d)}
                       activeOpacity={0.8}
                     >
                       <Text
                         style={[
-                          styles.timeChipText,
-                          isTimeSelected && styles.selectedTimeChipText,
+                          styles.dayCellText,
+                          isSelected && styles.selectedDayCellText,
                         ]}
                       >
-                        {time}
+                        {d}
                       </Text>
                     </TouchableOpacity>
                   );
                 })}
               </View>
 
-              {/* Custom Time Input Option */}
-              <View style={styles.customTimeWrapper}>
-                <Text style={styles.customTimeLabel}>Or Enter Custom Time:</Text>
-                <TextInput
-                  style={styles.customTimeInput}
-                  placeholder="e.g. 03:15 PM"
-                  placeholderTextColor={Colors.textMuted}
-                  value={customTime}
-                  onChangeText={handleCustomTimeChange}
-                />
+              {/* Time Slot & Custom Time Section */}
+              <View style={styles.timeSection}>
+                <Text style={styles.sectionLabel}>Select Time Slot</Text>
+                <View style={styles.timeGrid}>
+                  {timeSlots.map((time) => {
+                    const isTimeSelected = selectedTime === time && !customTime;
+                    return (
+                      <TouchableOpacity
+                        key={time}
+                        style={[
+                          styles.timeChip,
+                          isTimeSelected && styles.selectedTimeChip,
+                        ]}
+                        onPress={() => handleSelectPresetTime(time)}
+                        activeOpacity={0.8}
+                      >
+                        <Text
+                          style={[
+                            styles.timeChipText,
+                            isTimeSelected && styles.selectedTimeChipText,
+                          ]}
+                        >
+                          {time}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Custom Time Input Option */}
+                <View style={styles.customTimeWrapper}>
+                  <Text style={styles.customTimeLabel}>Or Enter Custom Time:</Text>
+                  <TextInput
+                    style={styles.customTimeInput}
+                    placeholder="e.g. 03:15 PM"
+                    placeholderTextColor={Colors.textMuted}
+                    value={customTime}
+                    onChangeText={handleCustomTimeChange}
+                  />
+                </View>
               </View>
-            </View>
-          </ScrollView>
+            </ScrollView>
+          )}
 
           {/* Action Buttons */}
           <View style={styles.actionRow}>
@@ -257,7 +399,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.xl,
-    maxHeight: '85%',
+    maxHeight: '88%',
   },
   headerContainer: {
     alignItems: 'center',
@@ -281,13 +423,32 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.borderLight,
   },
-  arrowBtn: {
-    padding: Spacing.xs,
+  headerCenterSelectors: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  monthText: {
-    fontSize: Typography.fontSize.base,
+  pillSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FAF8F5',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E8E4DF',
+    gap: 4,
+  },
+  yearPillSelector: {
+    backgroundColor: '#F3EFEA',
+  },
+  pillSelectorText: {
+    fontSize: Typography.fontSize.xs + 1,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.primary,
+  },
+  arrowBtn: {
+    padding: Spacing.xs,
   },
   daysHeaderRow: {
     flexDirection: 'row',
@@ -414,5 +575,97 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.sm + 1,
     fontWeight: Typography.fontWeight.bold,
     color: '#FFFFFF',
+  },
+  // Year & Month Selector Styles
+  selectorContainer: {
+    marginBottom: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  selectorHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  backToCalBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E8E4DF',
+  },
+  backToCalText: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.primary,
+  },
+  selectorTitle: {
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.textPrimary,
+  },
+  yearScroll: {
+    maxHeight: 260,
+  },
+  yearGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  yearItem: {
+    width: '30%',
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#EFEBE6',
+  },
+  yearItemSelected: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  yearItemText: {
+    fontSize: Typography.fontSize.xs + 1,
+    fontWeight: Typography.fontWeight.semibold,
+    color: Colors.textPrimary,
+  },
+  yearItemTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: Typography.fontWeight.bold,
+  },
+  monthGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  monthItem: {
+    width: '30%',
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#EFEBE6',
+  },
+  monthItemSelected: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  monthItemText: {
+    fontSize: Typography.fontSize.xs + 1,
+    fontWeight: Typography.fontWeight.semibold,
+    color: Colors.textPrimary,
+  },
+  monthItemTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: Typography.fontWeight.bold,
   },
 });

@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  StatusBar,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,11 +12,9 @@ import { Colors, Typography, Spacing } from '../../constants';
 import {
   ScreenHeader,
   CalendarIcon,
-  SearchIcon,
   CustomDropdownModal,
-  CalendarPickerModal,
+  DatePickerModal,
   CustomToast,
-  RefreshIcon,
   FileTextIcon,
   WalletIcon,
 } from '../../components/common';
@@ -29,11 +26,21 @@ import {
 } from '../../api/ledgerApi';
 
 interface LedgerScreenProps {
+  initialAccount?: string;
+  initialPersonId?: string;
+  initialAccountName?: string;
+  initialFromDate?: string;
+  initialToDate?: string;
   onBack?: () => void;
   onHome?: () => void;
 }
 
 export const LedgerScreen: React.FC<LedgerScreenProps> = ({
+  initialAccount,
+  initialPersonId,
+  initialAccountName,
+  initialFromDate,
+  initialToDate,
   onBack,
   onHome,
 }) => {
@@ -41,9 +48,17 @@ export const LedgerScreen: React.FC<LedgerScreenProps> = ({
   const todayStr = new Date().toISOString().split('T')[0];
   const firstDayOfYear = `${new Date().getFullYear()}-01-01`;
 
-  const [selectedAccountCode, setSelectedAccountCode] = useState<string | null>(null);
-  const [fromDate, setFromDate] = useState<string>(firstDayOfYear);
-  const [toDate, setToDate] = useState<string>(todayStr);
+  const [selectedAccountCode, setSelectedAccountCode] = useState<string | null>(
+    initialAccount || null
+  );
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(
+    initialPersonId || null
+  );
+  const [fromDate, setFromDate] = useState<string>(initialFromDate || firstDayOfYear);
+  const [toDate, setToDate] = useState<string>(initialToDate || todayStr);
+
+  // View style: Landscape Table vs Card View
+  const [viewStyle, setViewStyle] = useState<'table' | 'cards'>('table');
 
   // Date picker modal state
   const [datePickerType, setDatePickerType] = useState<'from' | 'to' | null>(null);
@@ -66,7 +81,7 @@ export const LedgerScreen: React.FC<LedgerScreenProps> = ({
   };
 
   // Queries & Mutations
-  const { data: accountsData, isLoading: isAccountsLoading, refetch: refetchAccounts } = useGetGLAccountsQuery();
+  const { data: accountsData, isLoading: isAccountsLoading } = useGetGLAccountsQuery();
   const [getGLAccountInquiry, { isLoading: isInquiryLoading }] = useGetGLAccountInquiryMutation();
 
   const glAccountsList: GLAccountItem[] = accountsData?.data || [];
@@ -79,92 +94,131 @@ export const LedgerScreen: React.FC<LedgerScreenProps> = ({
     (acc) => String(acc.account_code) === String(selectedAccountCode)
   );
 
-  const fetchLedgerData = async (accountCode?: string) => {
-    const accToUse = accountCode || selectedAccountCode;
-    if (!accToUse) {
-      showToast('Please select a GL account', 'error');
-      return;
-    }
+  const fetchLedgerData = useCallback(
+    async (accountCode?: string, personId?: string, from?: string, to?: string) => {
+      const accToUse = accountCode !== undefined ? accountCode : selectedAccountCode;
+      const personToUse = personId !== undefined ? personId : selectedPersonId;
+      if (!accToUse && !personToUse) {
+        showToast('Please select a GL account or counterparty', 'error');
+        return;
+      }
 
-    try {
-      const payload = {
-        account: accToUse,
-        from_date: fromDate,
-        to_date: toDate,
-      };
+      try {
+        const payload: any = {
+          account: accToUse || '',
+          from_date: from || fromDate,
+          to_date: to || toDate,
+        };
+        if (personToUse) {
+          payload.person_id = personToUse;
+        }
 
-      console.log('Fetching GL Account Inquiry:', payload);
-      const res = await getGLAccountInquiry(payload).unwrap();
+        console.log('====================================================');
+        console.log('>>> [LedgerScreen] Calling ledger/gl_account_inquiry.php with:', payload);
+        console.log('====================================================');
 
-      if (res.status === 'true' || res.status === true) {
-        const opening = res.opening !== undefined && res.opening !== null
-          ? parseFloat(String(res.opening))
-          : 0;
-        setOpeningBalance(opening);
+        const res = await getGLAccountInquiry(payload).unwrap();
 
-        const txList = Array.isArray(res.data) ? res.data : [];
-        setTransactions(txList);
+        console.log('====================================================');
+        console.log('<<< [LedgerScreen] Response Status:', res?.status);
+        console.log('<<< [LedgerScreen] Opening Balance:', res?.opening);
+        console.log('<<< [LedgerScreen] Transactions Count:', res?.data?.length);
+        console.log('====================================================');
 
-        // Calculate running balances for each transaction
-        let currentBal = opening;
-        const balances: number[] = [];
-        txList.forEach((tx) => {
-          const amt = parseFloat(String(tx.amount)) || 0;
-          currentBal += amt;
-          balances.push(currentBal);
-        });
-        setRunningBalances(balances);
-      } else {
+        if (res.status === 'true' || res.status === true) {
+          const opening =
+            res.opening !== undefined && res.opening !== null
+              ? parseFloat(String(res.opening))
+              : 0;
+          setOpeningBalance(opening);
+
+          const txList = Array.isArray(res.data) ? res.data : [];
+          setTransactions(txList);
+
+          // Calculate running balances for each transaction
+          let currentBal = opening;
+          const balances: number[] = [];
+          txList.forEach((tx) => {
+            const amt = parseFloat(String(tx.amount)) || 0;
+            currentBal += amt;
+            balances.push(currentBal);
+          });
+          setRunningBalances(balances);
+        } else {
+          setTransactions([]);
+          setOpeningBalance(0);
+          setRunningBalances([]);
+          showToast('No ledger records returned', 'error');
+        }
+      } catch (err: any) {
+        console.error('GL Inquiry Error:', err);
+        showToast(err?.data?.message || 'Error fetching ledger transactions', 'error');
         setTransactions([]);
         setOpeningBalance(0);
         setRunningBalances([]);
-        showToast('No ledger records returned', 'error');
       }
-    } catch (err: any) {
-      console.error('GL Inquiry Error:', err);
-      showToast(err?.data?.message || 'Error fetching ledger transactions', 'error');
-      setTransactions([]);
-      setOpeningBalance(0);
-      setRunningBalances([]);
-    }
-  };
+    },
+    [selectedAccountCode, selectedPersonId, fromDate, toDate, getGLAccountInquiry]
+  );
 
-  // Auto-fetch when account is chosen
+  // Auto-fetch on initial load if navigated with an account or personId
+  useEffect(() => {
+    if (initialAccount || initialPersonId) {
+      if (initialAccount) setSelectedAccountCode(initialAccount);
+      if (initialPersonId) setSelectedPersonId(initialPersonId);
+      const start = initialFromDate || fromDate;
+      const end = initialToDate || toDate;
+      if (initialFromDate) setFromDate(initialFromDate);
+      if (initialToDate) setToDate(initialToDate);
+      fetchLedgerData(initialAccount, initialPersonId, start, end);
+    }
+  }, [initialAccount, initialPersonId, initialFromDate, initialToDate]);
+
+  // Handle Account Selection from dropdown
   const handleSelectAccount = (code: string) => {
     setSelectedAccountCode(code);
+    setSelectedPersonId(null);
     setIsAccountModalOpen(false);
-    fetchLedgerData(code);
+    fetchLedgerData(code, undefined, fromDate, toDate);
   };
 
-  // Total debits, credits, closing balance
+  // Totals calculations
   let totalDebit = 0;
   let totalCredit = 0;
   transactions.forEach((tx) => {
     const amt = parseFloat(String(tx.amount)) || 0;
-    if (amt > 0) {
+    if (amt >= 0) {
       totalDebit += amt;
     } else {
       totalCredit += Math.abs(amt);
     }
   });
 
-  const closingBalance = openingBalance + totalDebit - totalCredit;
+  const closingBalance =
+    runningBalances.length > 0
+      ? runningBalances[runningBalances.length - 1]
+      : openingBalance;
+
+  const headerTitle =
+    initialAccountName ||
+    (selectedAccount ? selectedAccount.account_name : 'General Ledger');
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
-      <CustomToast
-        visible={toastVisible}
-        message={toastMessage}
-        type={toastType}
-        onHide={() => setToastVisible(false)}
-      />
-
       <ScreenHeader
-        title="General Ledger"
+        title={headerTitle}
         onBackPress={onBack}
         onHomePress={onHome}
       />
+
+      {toastVisible && (
+        <CustomToast
+          visible={toastVisible}
+          message={toastMessage}
+          type={toastType}
+          onHide={() => setToastVisible(false)}
+        />
+      )}
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -172,80 +226,95 @@ export const LedgerScreen: React.FC<LedgerScreenProps> = ({
       >
         {/* FILTER CARD */}
         <View style={styles.filterCard}>
-          {/* Row 1: Account Dropdown */}
+          <Text style={styles.filterCardTitle}>FILTER PARAMETERS</Text>
+
+          {/* Account Picker */}
           <View style={styles.filterRow}>
-            <Text style={styles.fieldLabel}>Select Account</Text>
+            <Text style={styles.fieldLabel}>GL Account</Text>
             <TouchableOpacity
               style={[
                 styles.accountPickerBtn,
                 !selectedAccountCode && styles.accountPickerBtnEmpty,
               ]}
               onPress={() => setIsAccountModalOpen(true)}
-              activeOpacity={0.8}
+              activeOpacity={0.7}
             >
-              <FileTextIcon size={18} color={Colors.primary} />
+              <WalletIcon size={18} color={Colors.primary} />
               <Text
                 style={[
                   styles.accountPickerText,
-                  !selectedAccountCode && styles.accountPickerPlaceholder,
+                  !selectedAccountCode && !selectedPersonId && styles.accountPickerPlaceholder,
                 ]}
                 numberOfLines={1}
               >
                 {selectedAccount
                   ? `${selectedAccount.account_code} - ${selectedAccount.account_name}`
+                  : initialAccountName
+                  ? `${selectedAccountCode ? `${selectedAccountCode} - ` : ''}${initialAccountName}`
+                  : selectedAccountCode
+                  ? `${selectedAccountCode}`
+                  : selectedPersonId
+                  ? `Counterparty #${selectedPersonId}`
                   : isAccountsLoading
                   ? 'Loading accounts...'
-                  : 'Select GL Account ▾'}
+                  : 'Select an Account'}
               </Text>
             </TouchableOpacity>
           </View>
 
-          {/* Row 2: Date Filters (From Date & To Date) */}
-          <View style={styles.dateFilterRow}>
-            {/* From Date */}
-            <View style={styles.dateCol}>
-              <Text style={styles.fieldLabel}>From Date</Text>
-              <TouchableOpacity
-                style={styles.datePickerBtn}
-                onPress={() => setDatePickerType('from')}
-                activeOpacity={0.8}
-              >
-                <CalendarIcon size={16} color={Colors.primary} />
-                <Text style={styles.dateText}>{fromDate}</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* To Date */}
-            <View style={styles.dateCol}>
-              <Text style={styles.fieldLabel}>To Date</Text>
-              <TouchableOpacity
-                style={styles.datePickerBtn}
-                onPress={() => setDatePickerType('to')}
-                activeOpacity={0.8}
-              >
-                <CalendarIcon size={16} color={Colors.primary} />
-                <Text style={styles.dateText}>{toDate}</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Refresh/Search button */}
+          {/* Date Range Row with Calendar Pickers */}
+          <View style={styles.dateInputsRow}>
+            {/* From Date Box */}
             <TouchableOpacity
-              style={[styles.searchActionBtn, isInquiryLoading && styles.searchActionBtnDisabled]}
-              onPress={() => fetchLedgerData()}
-              disabled={isInquiryLoading}
-              activeOpacity={0.8}
+              style={styles.dateBox}
+              activeOpacity={0.75}
+              onPress={() => setDatePickerType('from')}
             >
-              {isInquiryLoading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <SearchIcon size={18} color="#FFFFFF" />
-              )}
+              <CalendarIcon size={16} color={Colors.primary} />
+              <View style={styles.dateTextWrapper}>
+                <Text style={styles.dateLabel}>FROM</Text>
+                <Text style={styles.dateValueText}>{fromDate}</Text>
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.dateArrowBox}>
+              <Text style={styles.dateArrowText}>→</Text>
+            </View>
+
+            {/* To Date Box */}
+            <TouchableOpacity
+              style={styles.dateBox}
+              activeOpacity={0.75}
+              onPress={() => setDatePickerType('to')}
+            >
+              <CalendarIcon size={16} color={Colors.primary} />
+              <View style={styles.dateTextWrapper}>
+                <Text style={styles.dateLabel}>TO</Text>
+                <Text style={styles.dateValueText}>{toDate}</Text>
+              </View>
             </TouchableOpacity>
           </View>
+
+          {/* Inquiry Button */}
+          <TouchableOpacity
+            style={[
+              styles.inquiryBtn,
+              isInquiryLoading && styles.inquiryBtnDisabled,
+            ]}
+            onPress={() => fetchLedgerData()}
+            disabled={isInquiryLoading}
+            activeOpacity={0.8}
+          >
+            {isInquiryLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.inquiryBtnText}>Run Inquiry</Text>
+            )}
+          </TouchableOpacity>
         </View>
 
-        {/* FINANCIAL SUMMARY CARDS */}
-        {selectedAccountCode && (
+        {/* SUMMARY BALANCE CARDS */}
+        {(selectedAccountCode || selectedPersonId) && (
           <View style={styles.summaryContainer}>
             <View style={styles.summaryRow}>
               {/* Opening Balance */}
@@ -285,14 +354,57 @@ export const LedgerScreen: React.FC<LedgerScreenProps> = ({
           </View>
         )}
 
-        {/* TRANSACTIONS LIST (BANK STYLE CARDS) */}
+        {/* TRANSACTIONS SECTION WITH VIEW TOGGLE */}
         <View style={styles.transactionsHeaderRow}>
-          <Text style={styles.sectionTitle}>TRANSACTIONS</Text>
-          {transactions.length > 0 && (
-            <View style={styles.countBadge}>
-              <Text style={styles.countBadgeText}>{transactions.length} record{transactions.length !== 1 ? 's' : ''}</Text>
-            </View>
-          )}
+          <View style={styles.txHeaderLeft}>
+            <Text style={styles.sectionTitle}>TRANSACTIONS</Text>
+            {transactions.length > 0 && (
+              <View style={styles.countBadge}>
+                <Text style={styles.countBadgeText}>
+                  {transactions.length} record{transactions.length !== 1 ? 's' : ''}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Landscape Table vs Cards Toggle */}
+          <View style={styles.viewToggleContainer}>
+            <TouchableOpacity
+              style={[
+                styles.viewToggleBtn,
+                viewStyle === 'table' && styles.viewToggleBtnActive,
+              ]}
+              onPress={() => setViewStyle('table')}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.viewToggleBtnText,
+                  viewStyle === 'table' && styles.viewToggleBtnTextActive,
+                ]}
+              >
+                Landscape Table
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.viewToggleBtn,
+                viewStyle === 'cards' && styles.viewToggleBtnActive,
+              ]}
+              onPress={() => setViewStyle('cards')}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.viewToggleBtnText,
+                  viewStyle === 'cards' && styles.viewToggleBtnTextActive,
+                ]}
+              >
+                Cards View
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {isInquiryLoading ? (
@@ -300,12 +412,12 @@ export const LedgerScreen: React.FC<LedgerScreenProps> = ({
             <ActivityIndicator size="large" color={Colors.primary} />
             <Text style={styles.loadingText}>Fetching ledger transactions...</Text>
           </View>
-        ) : !selectedAccountCode ? (
+        ) : !selectedAccountCode && !selectedPersonId ? (
           <View style={styles.emptyBox}>
             <WalletIcon size={36} color={Colors.textMuted} />
             <Text style={styles.emptyTitle}>No Account Selected</Text>
             <Text style={styles.emptySub}>
-              Please select a GL account from the dropdown above to view ledger transactions.
+              Please select a GL account or counterparty to view ledger transactions.
             </Text>
           </View>
         ) : transactions.length === 0 ? (
@@ -316,36 +428,153 @@ export const LedgerScreen: React.FC<LedgerScreenProps> = ({
               There are no transactions recorded for this account between {fromDate} and {toDate}.
             </Text>
           </View>
+        ) : viewStyle === 'table' ? (
+          /* ======================================================== */
+          /* LANDSCAPE TABLE VIEW (SIDE-BY-SIDE ALL COLUMNS SCROLLABLE) */
+          /* ======================================================== */
+          <View style={styles.tableCardContainer}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={true}
+              contentContainerStyle={styles.tableScrollContent}
+            >
+              <View style={styles.tableInner}>
+                {/* Header Row */}
+                <View style={styles.tableHeaderRow}>
+                  <Text style={[styles.thCell, { width: 95 }]}>Date</Text>
+                  <Text style={[styles.thCell, { width: 85 }]}>Ref #</Text>
+                  <Text style={[styles.thCell, { width: 140 }]}>Counter Party</Text>
+                  <Text style={[styles.thCell, { width: 180 }]}>Memo / Details</Text>
+                  <Text style={[styles.thCell, { width: 110, textAlign: 'right' }]}>
+                    Debit (+)
+                  </Text>
+                  <Text style={[styles.thCell, { width: 110, textAlign: 'right' }]}>
+                    Credit (-)
+                  </Text>
+                  <Text style={[styles.thCell, { width: 120, textAlign: 'right' }]}>
+                    Balance
+                  </Text>
+                </View>
+
+                {/* Data Rows */}
+                {transactions.map((tx, idx) => {
+                  const amtNum = parseFloat(String(tx.amount)) || 0;
+                  const isDebit = amtNum >= 0;
+                  const runningBal =
+                    runningBalances[idx] !== undefined
+                      ? runningBalances[idx]
+                      : openingBalance;
+                  const isEven = idx % 2 === 0;
+
+                  return (
+                    <View
+                      key={`tbl_${tx.reference || idx}_${idx}`}
+                      style={[
+                        styles.tableDataRow,
+                        isEven ? styles.rowEven : styles.rowOdd,
+                      ]}
+                    >
+                      <Text style={[styles.tdCell, { width: 95 }]}>
+                        {tx.doc_date || '-'}
+                      </Text>
+                      <Text style={[styles.tdCell, styles.refText, { width: 85 }]}>
+                        {tx.reference || '-'}
+                      </Text>
+                      <Text style={[styles.tdCell, { width: 140 }]} numberOfLines={1}>
+                        {tx.person_name || '-'}
+                      </Text>
+                      <Text style={[styles.tdCell, { width: 180 }]} numberOfLines={2}>
+                        {tx.memo || '-'}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.tdCell,
+                          styles.debitCell,
+                          { width: 110, textAlign: 'right' },
+                        ]}
+                      >
+                        {isDebit ? `Rs. ${Math.abs(amtNum).toLocaleString()}` : '-'}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.tdCell,
+                          styles.creditCell,
+                          { width: 110, textAlign: 'right' },
+                        ]}
+                      >
+                        {!isDebit ? `Rs. ${Math.abs(amtNum).toLocaleString()}` : '-'}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.tdCell,
+                          styles.balCell,
+                          { width: 120, textAlign: 'right' },
+                        ]}
+                      >
+                        Rs. {Math.round(runningBal).toLocaleString()}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          </View>
         ) : (
+          /* ======================================================== */
+          /* CARD VIEW                                                */
+          /* ======================================================== */
           <View style={styles.cardsList}>
             {transactions.map((tx, idx) => {
               const amtNum = parseFloat(String(tx.amount)) || 0;
               const isDebit = amtNum >= 0;
-              const runningBal = runningBalances[idx] !== undefined
-                ? runningBalances[idx]
-                : openingBalance;
+              const runningBal =
+                runningBalances[idx] !== undefined
+                  ? runningBalances[idx]
+                  : openingBalance;
 
               return (
                 <View key={`${tx.reference || idx}_${idx}`} style={styles.txCard}>
                   {/* Card Top: Date, Ref Badge & Amount */}
                   <View style={styles.txCardTop}>
                     <View style={styles.txLeftHeader}>
-                      <View style={[styles.txTypeDot, isDebit ? styles.debitDot : styles.creditDot]} />
+                      <View
+                        style={[
+                          styles.txTypeDot,
+                          isDebit ? styles.debitDot : styles.creditDot,
+                        ]}
+                      />
                       <Text style={styles.txDate}>{tx.doc_date || '-'}</Text>
                       {tx.reference ? (
                         <View style={styles.refBadge}>
-                          <Text style={styles.refBadgeText}>Ref: #{tx.reference}</Text>
+                          <Text style={styles.refBadgeText}>
+                            Ref: #{tx.reference}
+                          </Text>
                         </View>
                       ) : null}
                     </View>
 
                     {/* Transaction Amount */}
                     <View style={styles.txAmountWrapper}>
-                      <Text style={[styles.txAmount, isDebit ? styles.debitColor : styles.creditColor]}>
+                      <Text
+                        style={[
+                          styles.txAmount,
+                          isDebit ? styles.debitColor : styles.creditColor,
+                        ]}
+                      >
                         {isDebit ? '+' : '-'}Rs. {Math.abs(amtNum).toLocaleString()}
                       </Text>
-                      <View style={[styles.txTypePill, isDebit ? styles.debitPill : styles.creditPill]}>
-                        <Text style={[styles.txTypePillText, isDebit ? styles.debitPillText : styles.creditPillText]}>
+                      <View
+                        style={[
+                          styles.txTypePill,
+                          isDebit ? styles.debitPill : styles.creditPill,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.txTypePillText,
+                            isDebit ? styles.debitPillText : styles.creditPillText,
+                          ]}
+                        >
                           {isDebit ? 'DEBIT' : 'CREDIT'}
                         </Text>
                       </View>
@@ -357,14 +586,17 @@ export const LedgerScreen: React.FC<LedgerScreenProps> = ({
                     {tx.memo || 'General Transaction'}
                   </Text>
 
-                  {/* Card Bottom: Person / Counter Party & Running Balance */}
+                  {/* Card Bottom: Person & Running Balance */}
                   <View style={styles.txCardBottom}>
                     <Text style={styles.txPerson} numberOfLines={1}>
                       {tx.person_name ? `Counter: ${tx.person_name}` : ''}
                     </Text>
 
                     <Text style={styles.txRunningBal}>
-                      Bal: <Text style={styles.runningBalBold}>Rs. {Math.round(runningBal).toLocaleString()}</Text>
+                      Bal:{' '}
+                      <Text style={styles.runningBalBold}>
+                        Rs. {Math.round(runningBal).toLocaleString()}
+                      </Text>
                     </Text>
                   </View>
                 </View>
@@ -384,11 +616,13 @@ export const LedgerScreen: React.FC<LedgerScreenProps> = ({
         onClose={() => setIsAccountModalOpen(false)}
       />
 
-      {/* Date Picker Modal */}
-      <CalendarPickerModal
+      {/* Date Picker Modal with Year & Month Selection */}
+      <DatePickerModal
         visible={datePickerType !== null}
+        title={datePickerType === 'from' ? 'Select From Date' : 'Select To Date'}
+        selectedDate={datePickerType === 'from' ? fromDate : toDate}
         onClose={() => setDatePickerType(null)}
-        onSelectDateTime={(dateStr) => {
+        onSelectDate={(dateStr) => {
           if (datePickerType === 'from') {
             setFromDate(dateStr);
           } else if (datePickerType === 'to') {
@@ -408,7 +642,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: Spacing.md,
-    paddingBottom: Spacing.xxl + 20,
+    paddingBottom: Spacing.xxl + 30,
     gap: Spacing.md,
   },
   filterCard: {
@@ -423,6 +657,12 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
     gap: Spacing.sm + 2,
+  },
+  filterCardTitle: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.textSecondary,
+    letterSpacing: 0.5,
   },
   filterRow: {
     gap: 4,
@@ -441,7 +681,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     borderRadius: Spacing.borderRadius.sm,
     paddingHorizontal: Spacing.md,
-    height: 46,
+    height: 44,
     gap: Spacing.sm,
   },
   accountPickerBtnEmpty: {
@@ -449,147 +689,297 @@ const styles = StyleSheet.create({
   },
   accountPickerText: {
     fontSize: Typography.fontSize.sm,
-    color: Colors.textPrimary,
     fontWeight: '600',
+    color: Colors.textPrimary,
     flex: 1,
   },
   accountPickerPlaceholder: {
     color: Colors.textMuted,
     fontWeight: 'normal',
   },
-  dateFilterRow: {
+  dateInputsRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
   },
-  dateCol: {
+  dateBox: {
     flex: 1,
-  },
-  datePickerBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FAF8F5',
+    height: 44,
+    borderRadius: Spacing.borderRadius.sm,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: Spacing.borderRadius.sm,
-    paddingHorizontal: 10,
-    height: 42,
-    gap: 6,
+    paddingHorizontal: Spacing.sm,
+    gap: 8,
   },
-  dateText: {
-    fontSize: Typography.fontSize.xs + 1,
+  dateTextWrapper: {
+    flex: 1,
+  },
+  dateLabel: {
+    fontSize: 9,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.textMuted,
+    letterSpacing: 0.5,
+  },
+  dateValueText: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.semibold,
     color: Colors.textPrimary,
-    fontWeight: '600',
   },
-  searchActionBtn: {
-    width: 42,
-    height: 42,
-    backgroundColor: Colors.primary,
-    borderRadius: Spacing.borderRadius.sm,
+  dateArrowBox: {
+    paddingHorizontal: 2,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  searchActionBtnDisabled: {
+  dateArrowText: {
+    fontSize: 16,
+    color: Colors.textMuted,
+    fontWeight: 'bold',
+  },
+  inquiryBtn: {
+    backgroundColor: Colors.primary,
+    height: 44,
+    borderRadius: Spacing.borderRadius.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  inquiryBtnDisabled: {
     opacity: 0.6,
   },
+  inquiryBtnText: {
+    color: '#FFFFFF',
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.bold,
+  },
   summaryContainer: {
-    gap: 8,
+    gap: Spacing.sm,
   },
   summaryRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: Spacing.sm,
   },
   summaryCard: {
     flex: 1,
     backgroundColor: Colors.cardBackground,
-    borderRadius: Spacing.borderRadius.sm,
-    padding: Spacing.sm + 4,
+    borderRadius: Spacing.borderRadius.md,
+    padding: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.border,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
     elevation: 1,
   },
+  closingCard: {
+    backgroundColor: '#FAF8F5',
+    borderColor: Colors.primary,
+  },
   summaryCardLabel: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: Typography.fontSize.xs,
     color: Colors.textSecondary,
-    marginBottom: 2,
+    fontWeight: '500',
+    marginBottom: 4,
   },
   summaryCardValue: {
-    fontSize: Typography.fontSize.sm + 1,
-    fontWeight: 'bold',
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.bold,
     color: Colors.textPrimary,
   },
-  debitColor: {
-    color: '#10B981',
-  },
-  creditColor: {
-    color: Colors.primary,
-  },
-  closingCard: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
-  },
   closingCardLabel: {
-    fontSize: 11,
-    fontWeight: 'bold',
+    fontSize: Typography.fontSize.xs,
     color: Colors.primary,
-    marginBottom: 2,
+    fontWeight: Typography.fontWeight.bold,
+    marginBottom: 4,
   },
   closingCardValue: {
-    fontSize: Typography.fontSize.sm + 1,
-    fontWeight: 'bold',
+    fontSize: Typography.fontSize.base + 1,
+    fontWeight: Typography.fontWeight.bold,
     color: Colors.primary,
+  },
+  debitColor: {
+    color: '#059669',
+  },
+  creditColor: {
+    color: '#DC2626',
   },
   transactionsHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 4,
-    marginTop: 4,
+    alignItems: 'center',
+    marginTop: Spacing.xs,
+  },
+  txHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   sectionTitle: {
-    fontSize: Typography.fontSize.xs + 1,
-    fontWeight: 'bold',
-    color: Colors.primary,
-    letterSpacing: 0.8,
+    fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.textSecondary,
+    letterSpacing: 0.5,
   },
   countBadge: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#F3EFEA',
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 12,
+    borderRadius: 10,
   },
   countBadgeText: {
-    color: Colors.primary,
-    fontSize: 11,
-    fontWeight: 'bold',
+    fontSize: 10,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.textSecondary,
   },
+  viewToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F3EFEA',
+    borderRadius: 8,
+    padding: 2,
+  },
+  viewToggleBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  viewToggleBtnActive: {
+    backgroundColor: Colors.primary,
+  },
+  viewToggleBtnText: {
+    fontSize: 10,
+    fontWeight: Typography.fontWeight.semibold,
+    color: Colors.textSecondary,
+  },
+  viewToggleBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: Typography.fontWeight.bold,
+  },
+  centerBox: {
+    paddingVertical: Spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    fontSize: Typography.fontSize.xs + 1,
+    color: Colors.textSecondary,
+    marginTop: Spacing.sm,
+  },
+  emptyBox: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: Spacing.borderRadius.md,
+    padding: Spacing.xl,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  emptyTitle: {
+    fontSize: Typography.fontSize.sm + 1,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.textPrimary,
+    marginTop: Spacing.sm,
+    marginBottom: 4,
+  },
+  emptySub: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  // Landscape Table Styles
+  tableCardContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: Spacing.borderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
+  },
+  tableScrollContent: {
+    paddingVertical: 0,
+  },
+  tableInner: {
+    minWidth: 840,
+  },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F6F2',
+    borderBottomWidth: 1.5,
+    borderBottomColor: '#E8E4DF',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+  },
+  thCell: {
+    fontSize: 11,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.textSecondary,
+    paddingHorizontal: 6,
+    letterSpacing: 0.3,
+  },
+  tableDataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F2ED',
+  },
+  rowEven: {
+    backgroundColor: '#FFFFFF',
+  },
+  rowOdd: {
+    backgroundColor: '#FAF8F5',
+  },
+  tdCell: {
+    fontSize: 11,
+    color: Colors.textPrimary,
+    paddingHorizontal: 6,
+  },
+  refText: {
+    fontWeight: Typography.fontWeight.semibold,
+    color: Colors.primary,
+  },
+  debitCell: {
+    fontWeight: Typography.fontWeight.bold,
+    color: '#059669',
+  },
+  creditCell: {
+    fontWeight: Typography.fontWeight.bold,
+    color: '#DC2626',
+  },
+  balCell: {
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.textPrimary,
+  },
+  // Card View Styles
   cardsList: {
-    gap: 10,
+    gap: Spacing.sm,
   },
   txCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    padding: 12,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: Spacing.borderRadius.md,
+    padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#EFEAE1',
+    borderColor: Colors.border,
     shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
     shadowRadius: 4,
-    elevation: 2,
-    gap: 6,
+    elevation: 1,
   },
   txCardTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    marginBottom: Spacing.xs,
   },
   txLeftHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    flex: 1,
   },
   txTypeDot: {
     width: 8,
@@ -597,25 +987,25 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   debitDot: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#059669',
   },
   creditDot: {
-    backgroundColor: Colors.primary,
+    backgroundColor: '#DC2626',
   },
   txDate: {
     fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
     color: Colors.textSecondary,
+    fontWeight: '500',
   },
   refBadge: {
-    backgroundColor: '#F5EFE6',
+    backgroundColor: '#F3EFEA',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   refBadgeText: {
     fontSize: 10,
-    fontWeight: 'bold',
+    fontWeight: Typography.fontWeight.semibold,
     color: Colors.textSecondary,
   },
   txAmountWrapper: {
@@ -624,7 +1014,7 @@ const styles = StyleSheet.create({
   },
   txAmount: {
     fontSize: Typography.fontSize.sm + 1,
-    fontWeight: 'bold',
+    fontWeight: Typography.fontWeight.bold,
   },
   txTypePill: {
     paddingHorizontal: 6,
@@ -632,79 +1022,46 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   debitPill: {
-    backgroundColor: '#D1FAE5',
+    backgroundColor: '#ECFDF5',
   },
   creditPill: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#FEF2F2',
   },
   txTypePillText: {
     fontSize: 9,
-    fontWeight: 'bold',
+    fontWeight: Typography.fontWeight.bold,
   },
   debitPillText: {
-    color: '#065F46',
+    color: '#059669',
   },
   creditPillText: {
-    color: Colors.primary,
+    color: '#DC2626',
   },
   txMemo: {
     fontSize: Typography.fontSize.xs + 1,
     color: Colors.textPrimary,
-    fontWeight: '500',
     lineHeight: 18,
+    marginBottom: Spacing.xs + 2,
   },
   txCardBottom: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 4,
+    paddingTop: Spacing.xs,
     borderTopWidth: 1,
-    borderTopColor: '#F5EFE6',
+    borderTopColor: '#F5F2ED',
   },
   txPerson: {
-    fontSize: 11,
+    fontSize: 10,
     color: Colors.textMuted,
     flex: 1,
   },
   txRunningBal: {
-    fontSize: 11,
+    fontSize: 10,
     color: Colors.textSecondary,
   },
   runningBalBold: {
-    fontWeight: 'bold',
+    fontWeight: Typography.fontWeight.bold,
     color: Colors.textPrimary,
-  },
-  centerBox: {
-    padding: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  loadingText: {
-    fontSize: Typography.fontSize.xs + 1,
-    color: Colors.textMuted,
-  },
-  emptyBox: {
-    padding: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    gap: 8,
-  },
-  emptyTitle: {
-    fontSize: Typography.fontSize.base,
-    fontWeight: 'bold',
-    color: Colors.textPrimary,
-    marginTop: 4,
-  },
-  emptySub: {
-    fontSize: Typography.fontSize.xs + 1,
-    color: Colors.textMuted,
-    textAlign: 'center',
-    paddingHorizontal: 16,
-    lineHeight: 18,
   },
 });

@@ -48,9 +48,9 @@ const MOCK_DASHBOARD_DATA: GetDashboardOverviewResponse = {
     },
     {
       id: 'action_7',
-      title: 'Sales & Payments',
-      subtitle: 'Manage sales and payments',
-      iconName: 'wallet',
+      title: 'Management',
+      subtitle: 'Financial overview & analytics',
+      iconName: 'pie-chart',
     },
     {
       id: 'action_8',

@@ -8,3 +8,4 @@ export * from './sales';
 export * from './inventory';
 export * from './costing';
 export * from './ledger';
+export * from './management';
