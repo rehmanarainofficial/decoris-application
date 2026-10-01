@@ -191,6 +191,7 @@ export const LoginScreen: React.FC = () => {
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
         >
           <View style={styles.brandContainer}>
             <BackstageLogo size="large" variant="dark" showSubtitle={true} />
@@ -313,42 +314,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 70 : Spacing.xl,
-    paddingBottom: Spacing.xl,
+    flexGrow: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.xl,
   },
   brandContainer: {
     alignItems: 'center',
-    marginBottom: Spacing.xxl,
-  },
-  crownWrapper: {
-    marginBottom: -4,
-  },
-  logoText: {
-    fontSize: Typography.fontSize.xxxl + 6,
-    fontWeight: Typography.fontWeight.bold,
-    color: Colors.primary,
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-    letterSpacing: 0.5,
-  },
-  flourishWrapper: {
-    marginTop: -4,
-    marginBottom: Spacing.sm,
-  },
-  taglineText: {
-    fontSize: Typography.fontSize.xs + 1,
-    fontWeight: Typography.fontWeight.medium,
-    color: Colors.textSecondary,
-    letterSpacing: 0.5,
-  },
-  taglineDivider: {
-    color: Colors.accentGold,
-    fontWeight: Typography.fontWeight.bold,
+    marginBottom: Spacing.xl,
   },
   headerTextContainer: {
     alignItems: 'center',
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
   titleText: {
     fontSize: Typography.fontSize.xxl,
@@ -362,7 +340,7 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     width: '100%',
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
   inputWrapper: {
     flexDirection: 'row',

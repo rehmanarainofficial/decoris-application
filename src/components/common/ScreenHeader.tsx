@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, StatusBar } from 'react-native';
-import { ArrowLeftIcon, HomeIcon, CrownIcon, FlourishLoopIcon } from './Icons';
+import { ArrowLeftIcon, HomeIcon } from './Icons';
 import { Colors, Typography, Spacing } from '../../constants';
 
 interface ScreenHeaderProps {
@@ -29,15 +29,9 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
           <ArrowLeftIcon size={22} color={Colors.primary} />
         </TouchableOpacity>
 
-        {/* Center: Title with Gold Crown Emblem Above & Flourish Below */}
+        {/* Center: Clean Modern Title */}
         <View style={styles.centerContainer}>
-          <View style={styles.crownWrapper}>
-            <CrownIcon size={14} color={Colors.accentGold} />
-          </View>
           <Text style={styles.titleText}>{title}</Text>
-          <View style={styles.flourishWrapper}>
-            <FlourishLoopIcon width={64} height={10} color={Colors.accentGold} />
-          </View>
         </View>
 
         {/* Right Side: Home Button or Custom Action */}
@@ -62,12 +56,12 @@ const styles = StyleSheet.create({
   outerContainer: {
     backgroundColor: Colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.03)',
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 6 : 2,
-    paddingBottom: Spacing.lg,
+    borderBottomColor: 'rgba(0,0,0,0.04)',
+    paddingTop: Platform.OS === 'ios' ? 14 : 8,
+    paddingBottom: 10,
   },
   headerRow: {
-    height: 24,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -83,17 +77,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  crownWrapper: {
-    marginBottom: -2,
-  },
   titleText: {
     fontSize: Typography.fontSize.xl,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.primary,
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
     letterSpacing: 0.3,
-  },
-  flourishWrapper: {
-    marginTop: -2,
   },
 });

@@ -63,12 +63,12 @@ const styles = StyleSheet.create({
   outerContainer: {
     backgroundColor: Colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.03)',
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 6 : 2,
-    paddingBottom: Spacing.lg,
+    borderBottomColor: 'rgba(0,0,0,0.04)',
+    paddingTop: Platform.OS === 'ios' ? 14 : 8,
+    paddingBottom: 10,
   },
   headerRow: {
-    height: 17,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -78,28 +78,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'center',
   },
-  crownWrapper: {
-    marginBottom: -4,
-    marginLeft: 2,
-  },
-  logoText: {
-    fontSize: Typography.fontSize.xxl + 2,
-    fontWeight: Typography.fontWeight.bold,
-    color: Colors.primary,
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-    letterSpacing: 0.5,
-  },
-  flourishWrapper: {
-    marginTop: -3,
-    marginLeft: -2,
-  },
   rightActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   actionIconButton: {
-    width: 38,
-    height: 38,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: Spacing.xs,

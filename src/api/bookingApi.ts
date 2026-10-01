@@ -36,6 +36,7 @@ export interface PostEventQuotationResponse {
 
 export interface EventQuotationHeaderItem {
   order_no: string;
+  f_code?: string;
   person_id: string;
   reference: string;
   ord_date: string;
@@ -74,6 +75,7 @@ export interface ViewDataHeaderItem {
   trans_date?: string;
   due_date?: string | null;
   order_no: string;
+  f_code?: string;
   person_id?: string;
   ord_date?: string;
   function_date?: string;

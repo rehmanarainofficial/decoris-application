@@ -114,7 +114,6 @@ export const CalendarPickerModal: React.FC<CalendarPickerModalProps> = ({
         <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
           {/* Header Bar */}
           <View style={styles.headerContainer}>
-            <CrownIcon size={16} color={Colors.accentGold} />
             <Text style={styles.modalTitle}>Select Date & Time</Text>
           </View>
 

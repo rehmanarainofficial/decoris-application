@@ -58,18 +58,34 @@ export const EventCostingScreen: React.FC<EventCostingScreenProps> = ({
   onBack,
   onHome,
 }) => {
-  // Extract event context
-  const fCode = eventData?.function_code || eventData?.f_code || eventData?.order_no || '1';
+  const headerData =
+    Array.isArray(eventData?.data_header) && eventData.data_header.length > 0
+      ? eventData.data_header[0]
+      : eventData;
+  const fCode = String(
+    headerData?.f_code ||
+    headerData?.order_no ||
+    headerData?.trans_no ||
+    eventData?.f_code ||
+    eventData?.order_no ||
+    ''
+  );
+  const functionCode = String(
+    headerData?.function_code ||
+    eventData?.function_code ||
+    fCode
+  );
   const eventDate =
+    headerData?.function_date ||
     eventData?.function_date ||
-    eventData?.trans_date ||
-    eventData?.ord_date ||
-    new Date().toISOString().split('T')[0];
-  const partyName = eventData?.name || eventData?.party_name || 'Event Customer';
-  const venue = eventData?.venue || 'Event Venue';
+    headerData?.trans_date ||
+    headerData?.ord_date ||
+    '';
+  const partyName = headerData?.name || eventData?.name || 'Event Customer';
+  const venue = headerData?.venue || eventData?.venue || '';
 
-  // RTK Query hooks
-  const { data: suppliersResponse, isLoading: isSuppliersLoading } = useGetSuppliersQuery();
+  const { data: suppliersResponse, isLoading: isSuppliersLoading } =
+    useGetSuppliersQuery();
   const {
     data: fetchedCostingRes,
     isLoading: isCostingLoading,
@@ -80,12 +96,13 @@ export const EventCostingScreen: React.FC<EventCostingScreenProps> = ({
   const [postFunctionCosting] = usePostFunctionCostingMutation();
 
   const suppliersList: SupplierItem[] = suppliersResponse?.data || [];
-  const supplierOptions = suppliersList.map((s) => ({
-    label: s.name || `Supplier #${s.supplier_id}`,
+  const supplierOptions = suppliersList.map(s => ({
+    label: s.name,
     value: String(s.supplier_id),
   }));
 
-  const savedCostingItems: FunctionCostingItem[] = fetchedCostingRes?.data || [];
+  const savedCostingItems: FunctionCostingItem[] =
+    fetchedCostingRes?.data || [];
 
   const totalSavedCost = savedCostingItems.reduce((acc, item) => {
     const q = parseFloat(item.quantity) || 0;
@@ -93,25 +110,28 @@ export const EventCostingScreen: React.FC<EventCostingScreenProps> = ({
     return acc + q * r;
   }, 0);
 
-  // Toast State
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'error' | 'success' | 'info'>('success');
+  const [toastType, setToastType] = useState<'error' | 'success' | 'info'>(
+    'success',
+  );
 
-  const showToast = (msg: string, type: 'error' | 'success' | 'info' = 'success') => {
+  const showToast = (
+    msg: string,
+    type: 'error' | 'success' | 'info' = 'success',
+  ) => {
     setToastMessage(msg);
     setToastType(type);
     setToastVisible(true);
   };
 
-  // State for new rows to add
   const [costingRows, setCostingRows] = useState<CostingRow[]>([
     {
-      id: '1',
+      id: '',
       supplier_id: '',
       supplier_name: '',
       description: '',
-      quantity: '1',
+      quantity: '',
       unit_price: '',
       date: eventDate,
       f_code: fCode,
@@ -120,9 +140,10 @@ export const EventCostingScreen: React.FC<EventCostingScreenProps> = ({
     },
   ]);
 
-  // Modal State for Vendor selection
   const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
-  const [activeRowIdForVendor, setActiveRowIdForVendor] = useState<string | null>(null);
+  const [activeRowIdForVendor, setActiveRowIdForVendor] = useState<
+    string | null
+  >(null);
 
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -132,14 +153,14 @@ export const EventCostingScreen: React.FC<EventCostingScreenProps> = ({
       supplier_id: '',
       supplier_name: '',
       description: '',
-      quantity: '1',
+      quantity: '',
       unit_price: '',
       date: eventDate,
       f_code: fCode,
       isSaved: false,
       isSaving: false,
     };
-    setCostingRows((prev) => [...prev, newRow]);
+    setCostingRows(prev => [...prev, newRow]);
   };
 
   const handleDeleteRow = (id: string) => {
@@ -150,7 +171,7 @@ export const EventCostingScreen: React.FC<EventCostingScreenProps> = ({
           supplier_id: '',
           supplier_name: '',
           description: '',
-          quantity: '1',
+          quantity: '',
           unit_price: '',
           date: eventDate,
           f_code: fCode,
@@ -160,17 +181,21 @@ export const EventCostingScreen: React.FC<EventCostingScreenProps> = ({
       ]);
       return;
     }
-    setCostingRows((prev) => prev.filter((r) => r.id !== id));
+    setCostingRows(prev => prev.filter(r => r.id !== id));
   };
 
-  const updateRowField = (id: string, field: keyof CostingRow, value: string) => {
-    setCostingRows((prev) =>
-      prev.map((r) => {
+  const updateRowField = (
+    id: string,
+    field: keyof CostingRow,
+    value: string,
+  ) => {
+    setCostingRows(prev =>
+      prev.map(r => {
         if (r.id === id) {
           return { ...r, [field]: value, isSaved: false };
         }
         return r;
-      })
+      }),
     );
   };
 
@@ -182,12 +207,12 @@ export const EventCostingScreen: React.FC<EventCostingScreenProps> = ({
   const handleSelectVendor = (supplierId: string) => {
     if (!activeRowIdForVendor) return;
     const foundSupplier = suppliersList.find(
-      (s) => String(s.supplier_id) === String(supplierId)
+      s => String(s.supplier_id) === String(supplierId),
     );
     const supplierName = foundSupplier?.name || `Vendor #${supplierId}`;
 
-    setCostingRows((prev) =>
-      prev.map((r) => {
+    setCostingRows(prev =>
+      prev.map(r => {
         if (r.id === activeRowIdForVendor) {
           return {
             ...r,
@@ -197,7 +222,7 @@ export const EventCostingScreen: React.FC<EventCostingScreenProps> = ({
           };
         }
         return r;
-      })
+      }),
     );
     setActiveRowIdForVendor(null);
   };
@@ -222,8 +247,8 @@ export const EventCostingScreen: React.FC<EventCostingScreenProps> = ({
       return;
     }
 
-    setCostingRows((prev) =>
-      prev.map((r) => (r.id === row.id ? { ...r, isSaving: true } : r))
+    setCostingRows(prev =>
+      prev.map(r => (r.id === row.id ? { ...r, isSaving: true } : r)),
     );
 
     try {
@@ -246,28 +271,31 @@ export const EventCostingScreen: React.FC<EventCostingScreenProps> = ({
         res.message?.toLowerCase().includes('data')
       ) {
         showToast('Costing item saved successfully!', 'success');
-        setCostingRows((prev) =>
-          prev.map((r) =>
-            r.id === row.id ? { ...r, isSaved: true, isSaving: false } : r
-          )
+        setCostingRows(prev =>
+          prev.map(r =>
+            r.id === row.id ? { ...r, isSaved: true, isSaving: false } : r,
+          ),
         );
         refetchCosting();
       } else {
         showToast(res.message || 'Failed to save costing item', 'error');
-        setCostingRows((prev) =>
-          prev.map((r) => (r.id === row.id ? { ...r, isSaving: false } : r))
+        setCostingRows(prev =>
+          prev.map(r => (r.id === row.id ? { ...r, isSaving: false } : r)),
         );
       }
     } catch (err: any) {
       console.error('Error saving costing row:', err);
-      showToast(err?.data?.message || 'Server error while saving costing', 'error');
-      setCostingRows((prev) =>
-        prev.map((r) => (r.id === row.id ? { ...r, isSaving: false } : r))
+      showToast(
+        err?.data?.message || 'Server error while saving costing',
+        'error',
+      );
+      setCostingRows(prev =>
+        prev.map(r => (r.id === row.id ? { ...r, isSaving: false } : r)),
       );
     }
   };
 
-  const filteredNewRows = costingRows.filter((r) => {
+  const filteredNewRows = costingRows.filter(r => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -302,7 +330,11 @@ export const EventCostingScreen: React.FC<EventCostingScreenProps> = ({
           <View style={styles.eventInfoTopRow}>
             <View style={styles.fCodeBadge}>
               <FileTextIcon size={14} color="#FFFFFF" />
-              <Text style={styles.fCodeBadgeText}>F-CODE: {fCode}</Text>
+              <Text style={styles.fCodeBadgeText}>
+                {functionCode && functionCode !== fCode
+                  ? `${functionCode} (#${fCode})`
+                  : `F-CODE: ${fCode}`}
+              </Text>
             </View>
             <View style={styles.dateBadge}>
               <CalendarIcon size={14} color={Colors.primary} />
@@ -329,11 +361,15 @@ export const EventCostingScreen: React.FC<EventCostingScreenProps> = ({
         {/* 1. FETCHED / SAVED COSTING RECORDS LIST */}
         <View style={styles.savedSectionCard}>
           <View style={styles.savedSectionHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+            >
               <CalculatorIcon size={16} color="#FFFFFF" />
               <Text style={styles.savedSectionTitle}>SAVED EVENT EXPENSES</Text>
               <View style={styles.countBadge}>
-                <Text style={styles.countBadgeText}>{savedCostingItems.length}</Text>
+                <Text style={styles.countBadgeText}>
+                  {savedCostingItems.length}
+                </Text>
               </View>
             </View>
 
@@ -353,7 +389,9 @@ export const EventCostingScreen: React.FC<EventCostingScreenProps> = ({
           {isCostingLoading ? (
             <View style={styles.centerLoading}>
               <ActivityIndicator size="small" color={Colors.primary} />
-              <Text style={styles.loadingText}>Fetching saved costing records...</Text>
+              <Text style={styles.loadingText}>
+                Fetching saved costing records...
+              </Text>
             </View>
           ) : savedCostingItems.length === 0 ? (
             <View style={styles.emptySavedBox}>
@@ -393,13 +431,17 @@ export const EventCostingScreen: React.FC<EventCostingScreenProps> = ({
 
                     {/* Middle: Description (wrapping) */}
                     {item.description ? (
-                      <Text style={styles.savedDescription}>{item.description}</Text>
+                      <Text style={styles.savedDescription}>
+                        {item.description}
+                      </Text>
                     ) : null}
 
                     {/* Bottom: Qty x Rate = Total */}
                     <View style={styles.savedFinancialsRow}>
                       <Text style={styles.savedQtyRateText}>
-                        Qty: <Text style={styles.boldDark}>{item.quantity}</Text> × Rate:{' '}
+                        Qty:{' '}
+                        <Text style={styles.boldDark}>{item.quantity}</Text> ×
+                        Rate:{' '}
                         <Text style={styles.boldDark}>Rs. {item.rates}</Text>
                       </Text>
                       <Text style={styles.savedTotalText}>
@@ -502,7 +544,9 @@ export const EventCostingScreen: React.FC<EventCostingScreenProps> = ({
                     placeholder="e.g. Stage Setup, DJ Service, Lighting..."
                     placeholderTextColor={Colors.textMuted}
                     value={row.description}
-                    onChangeText={(val) => updateRowField(row.id, 'description', val)}
+                    onChangeText={val =>
+                      updateRowField(row.id, 'description', val)
+                    }
                     multiline
                   />
                 </View>
@@ -517,7 +561,9 @@ export const EventCostingScreen: React.FC<EventCostingScreenProps> = ({
                       placeholder="0"
                       placeholderTextColor={Colors.textMuted}
                       value={row.unit_price}
-                      onChangeText={(val) => updateRowField(row.id, 'unit_price', val)}
+                      onChangeText={val =>
+                        updateRowField(row.id, 'unit_price', val)
+                      }
                       keyboardType="numeric"
                     />
                   </View>
@@ -530,7 +576,9 @@ export const EventCostingScreen: React.FC<EventCostingScreenProps> = ({
                       placeholder="1"
                       placeholderTextColor={Colors.textMuted}
                       value={row.quantity}
-                      onChangeText={(val) => updateRowField(row.id, 'quantity', val)}
+                      onChangeText={val =>
+                        updateRowField(row.id, 'quantity', val)
+                      }
                       keyboardType="numeric"
                     />
                   </View>
@@ -577,7 +625,9 @@ export const EventCostingScreen: React.FC<EventCostingScreenProps> = ({
             activeOpacity={0.85}
           >
             <PlusIcon size={18} color={Colors.primary} strokeWidth={2.5} />
-            <Text style={styles.addBottomRowBtnText}>Add Another Expense Row</Text>
+            <Text style={styles.addBottomRowBtnText}>
+              Add Another Expense Row
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -589,7 +639,7 @@ export const EventCostingScreen: React.FC<EventCostingScreenProps> = ({
         options={supplierOptions}
         selectedValue={
           activeRowIdForVendor
-            ? costingRows.find((r) => r.id === activeRowIdForVendor)?.supplier_id
+            ? costingRows.find(r => r.id === activeRowIdForVendor)?.supplier_id
             : undefined
         }
         onSelect={handleSelectVendor}

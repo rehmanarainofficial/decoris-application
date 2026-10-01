@@ -69,7 +69,6 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
   onEditEvent,
   onNavigateToCosting,
 }) => {
-  // Live Data Query
   const {
     data: headerResponse,
     isLoading,
@@ -85,22 +84,18 @@ export const EventCalendarScreen: React.FC<EventCalendarScreenProps> = ({
     setActiveTab(filterStatus);
   }, [filterStatus]);
 
-  // Selected event for detail view (shortage / costing) - null by default so no event is auto-opened
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
-
+  console.log("selectedEvent", selectedEvent);
+  console.log("data", headerResponse);
+  
   const selectedOrderNo = selectedEvent?.order_no || selectedEvent?.trans_no;
   const { data: viewDataResult, isFetching: isViewDataFetching } =
     useGetViewDataQuery(
       { trans_no: selectedOrderNo, type: '32' },
       { skip: !selectedOrderNo },
     );
-  console.log("viewDataResult", viewDataResult);
   const detailItems = viewDataResult?.data_detail || [];
-
-  const selectedFCode =
-    selectedEvent?.function_code ||
-    selectedEvent?.f_code ||
-    selectedEvent?.order_no;
+  const selectedFCode = viewDataResult?.data_header?.[0]?.f_code || selectedEvent?.f_code
   const { data: costingResult, isFetching: isCostingFetching } =
     useGetFunctionCostingQuery(selectedFCode, { skip: !selectedFCode });
   const eventCostingItems: FunctionCostingItem[] = costingResult?.data || [];

@@ -51,14 +51,21 @@ export const BackstageLogo: React.FC<BackstageLogoProps> = ({
   return (
     <View style={styles.container}>
       {/* Main Brand Title with Star */}
-      <View style={styles.titleWrapper}>
+      <View
+        style={[
+          styles.titleWrapper,
+          {
+            paddingTop: Math.abs(config.starOffsetTop),
+          },
+        ]}
+      >
         {/* Red Star placed above the 'b' */}
         <View
           style={[
             styles.starWrapper,
             {
               left: config.starOffsetLeft,
-              top: config.starOffsetTop,
+              top: 0,
             },
           ]}
         >
